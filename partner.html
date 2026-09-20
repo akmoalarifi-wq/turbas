@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ترباس شركاء</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1E2124;--card:#2C3034;--border:#3A3E43;--amber:#E8A33D;--good:#6FBF8B;--text:#F2F0EA;--dim:#A9AEB4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;display:flex;justify-content:center}
+#app{width:100%;max-width:480px;min-height:100vh}
+.screen{display:none;flex-direction:column;min-height:100vh;padding:20px 18px 40px}
+.screen.active{display:flex}
+h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{color:var(--amber);font-weight:800}
+.field{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-family:Cairo;font-size:15px;margin-bottom:12px}
+.btn{background:var(--amber);color:#20221F;border:none;padding:14px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;width:100%;font-family:Cairo}
+.btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-sm{padding:10px 14px;font-size:13px;width:auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center}
+.tab-row{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer}
+.tab.active{background:var(--amber);color:#20221F;border-color:var(--amber);font-weight:700}
+.stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:20px;color:var(--amber)}.stat span{font-size:11px;color:var(--dim)}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(232,163,61,.15);color:var(--amber)}
+.badge-done{background:rgba(111,191,139,.15);color:var(--good)}
+.backbtn{width:34px;height:34px;border-radius:9px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:14px;cursor:pointer;font-size:18px}
+.msg{max-width:80%;padding:10px 14px;border-radius:14px;margin-bottom:8px;font-size:13.5px}
+.msg.me{background:var(--amber);color:#20221F;align-self:flex-end}
+.msg.them{background:var(--card);border:1px solid var(--border);align-self:flex-start}
+.chatbox{display:flex;flex-direction:column;flex:1;min-height:200px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--good);color:#16281E;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;z-index:99;opacity:0;transition:.25s;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.logo{font-size:22px;font-weight:800}.logo span{color:var(--amber)}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="screen active" id="s-login">
+  <div class="logo">ترباس <span>شركاء</span></div>
+  <p class="dim" style="margin:8px 0 24px">لوحة الورشة ومحل القطع</p>
+  <input class="field" id="phone" value="0500000001" placeholder="رقم الجوال">
+  <button class="btn" onclick="login()">دخول</button>
+  <p class="dim" style="margin-top:16px;text-align:center">تجريبي: 0500000001 أو 0500000006</p>
+  <p class="dim" style="text-align:center;margin-top:8px"><a href="/" style="color:var(--amber)">← موقع العميل</a></p>
+</div>
+<div class="screen" id="s-home">
+  <div class="row" style="margin-bottom:16px">
+    <div><div class="dim">مرحباً</div><h1 id="wsName" style="margin:0">—</h1></div>
+    <span class="dim" style="cursor:pointer" onclick="logout()">خروج</span>
+  </div>
+  <div class="row" style="gap:8px;margin-bottom:16px">
+    <div class="stat"><b id="stNew">0</b><span>جديدة</span></div>
+    <div class="stat"><b id="stActive">0</b><span>جارية</span></div>
+    <div class="stat"><b id="stDone">0</b><span>مكتملة</span></div>
+  </div>
+  <div class="tab-row">
+    <div class="tab active" data-t="new" onclick="setTab(this)">جديدة</div>
+    <div class="tab" data-t="active" onclick="setTab(this)">جارية</div>
+    <div class="tab" data-t="done" onclick="setTab(this)">مكتملة</div>
+  </div>
+  <div id="list"></div>
+</div>
+<div class="screen" id="s-order">
+  <div class="backbtn" onclick="show('s-home');loadOrders()">‹</div>
+  <h1 id="oTitle">طلب</h1>
+  <p class="dim" id="oMeta"></p>
+  <div class="card" style="cursor:default">
+    <div class="row"><b id="oService">—</b><span class="amber" id="oPrice">—</span></div>
+    <div class="dim" style="margin-top:8px" id="oCar"></div>
+    <div class="dim" style="margin-top:8px" id="oComm"></div>
+    <div class="dim" style="margin-top:4px" id="oDelivery"></div>
+  </div>
+  <p class="dim">الحالة: <b id="oStatus">—</b></p>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
+    <button class="btn btn-sm" onclick="setStatus('مقبول')">مقبول</button>
+    <button class="btn btn-sm" onclick="setStatus('جاري التنفيذ')">جاري التنفيذ</button>
+    <button class="btn btn-sm" onclick="setStatus('جاهز / مكتمل')">جاهز</button>
+  </div>
+  <button class="btn" onclick="openChat()">محادثة مع العميل</button>
+  <button class="btn btn-ghost" style="margin-top:8px" onclick="setStatus('تم تأكيد المطابقة')">تأكيد مطابقة القطعة</button>
+</div>
+<div class="screen" id="s-chat">
+  <div class="backbtn" onclick="show('s-order')">‹</div>
+  <h1>محادثة</h1>
+  <div class="chatbox" id="chatBox" style="flex-direction:column-reverse"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <input class="field" id="chatInput" placeholder="اكتب..." style="margin:0">
+    <button class="btn" style="width:auto;padding:14px 18px" onclick="sendMsg()">إرسال</button>
+  </div>
+</div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API = '';
+let partner = null, tab = 'new', orders = [], current = null;
+
+async function api(path, opts) {
+  const r = await fetch(API + path, {
+    headers: {'Content-Type': 'application/json'},
+    ...opts,
+    body: opts && opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0)}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+async function login(){
+  try {
+    const phone = document.getElementById('phone').value.trim();
+    const res = await api('/api/partners/login', {method:'POST', body:{phone}});
+    partner = res.partner;
+    localStorage.setItem('turbas_partner', JSON.stringify(partner));
+    document.getElementById('wsName').textContent = partner.name;
+    await loadOrders();
+    show('s-home');
+  } catch(e){ toast(e.message || 'فشل الدخول'); }
+}
+function logout(){ partner=null; localStorage.removeItem('turbas_partner'); show('s-login'); }
+
+function setTab(el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); tab = el.dataset.t; render();
+}
+async function loadOrders(){
+  orders = await api('/api/orders?partner_id=' + partner.id);
+  render();
+}
+function render(){
+  const n = orders.filter(o=>o.status==='new').length;
+  const a = orders.filter(o=>o.status==='active').length;
+  const d = orders.filter(o=>o.status==='done').length;
+  document.getElementById('stNew').textContent=n;
+  document.getElementById('stActive').textContent=a;
+  document.getElementById('stDone').textContent=d;
+  const list = orders.filter(o=>o.status===tab);
+  document.getElementById('list').innerHTML = list.length ? list.map(o=>`
+    <div class="card" onclick="openOrder(${o.id})">
+      <div class="row"><b>${o.title}</b><span class="badge ${o.status==='done'?'badge-done':''}">${o.status_text}</span></div>
+      <div class="dim" style="margin-top:6px">${o.car_info||''} · #${o.id}</div>
+      <div class="row" style="margin-top:8px"><span class="amber">${o.price} ر.س</span><span class="dim">${(o.created_at||'').slice(0,16)}</span></div>
+    </div>`).join('') : '<p class="dim" style="text-align:center;padding:30px">ما فيه طلبات</p>';
+}
+async function openOrder(id){
+  current = await api('/api/orders/' + id);
+  document.getElementById('oTitle').textContent = 'طلب #' + current.id;
+  document.getElementById('oMeta').textContent = (current.created_at||'').slice(0,16);
+  document.getElementById('oService').textContent = current.title;
+  document.getElementById('oPrice').textContent = current.price + ' ر.س';
+  document.getElementById('oCar').textContent = 'السيارة: ' + (current.car_info||'—');
+  document.getElementById('oComm').textContent = 'صافي بعد عمولة 15%: ' + (current.price * 0.85).toFixed(0) + ' ر.س';
+  document.getElementById('oDelivery').textContent = current.delivery_fee ? ('توصيل: ' + current.delivery_fee + ' ر.س · ' + (current.zone||'')) : 'بدون توصيل';
+  document.getElementById('oStatus').textContent = current.status_text;
+  show('s-order');
+}
+async function setStatus(st){
+  if (!current) return;
+  await api('/api/orders/' + current.id + '/status', {method:'POST', body:{status_text: st}});
+  current.status_text = st;
+  document.getElementById('oStatus').textContent = st;
+  toast('تم التحديث: ' + st);
+  await loadOrders();
+}
+async function openChat(){
+  const msgs = await api('/api/orders/' + current.id + '/messages');
+  const box = document.getElementById('chatBox');
+  box.innerHTML = msgs.length ? msgs.slice().reverse().map(m =>
+    `<div class="msg ${m.sender==='workshop'||m.sender==='partner'?'me':'them'}">${m.body}</div>`
+  ).join('') : '<p class="dim">ابدأ المحادثة</p>';
+  show('s-chat');
+}
+async function sendMsg(){
+  const i = document.getElementById('chatInput');
+  const v = i.value.trim(); if (!v) return;
+  await api('/api/orders/' + current.id + '/messages', {method:'POST', body:{sender:'workshop', body:v}});
+  i.value = '';
+  openChat();
+}
+
+// استعادة الجلسة
+try {
+  const s = localStorage.getItem('turbas_partner');
+  if (s) { partner = JSON.parse(s); document.getElementById('wsName').textContent = partner.name; loadOrders().then(()=>show('s-home')); }
+} catch(e){}
+</script>
+</body>
+</html>

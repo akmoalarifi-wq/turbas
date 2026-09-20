@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: turbas
+    runtime: python
+    buildCommand: "true"
+    startCommand: python3 server.py
+    plan: free
