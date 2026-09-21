@@ -21,7 +21,7 @@ from datetime import datetime
 import os
 HOST, PORT = "0.0.0.0", int(os.environ.get("PORT", 5000))
 ROOT = Path(__file__).resolve().parent
-STATIC = ROOT / "static"
+STATIC = ROOT
 DB = ROOT / "data" / "turbas.db"
 DB.parent.mkdir(parents=True, exist_ok=True)
 
