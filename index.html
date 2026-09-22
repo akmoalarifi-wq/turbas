@@ -295,6 +295,7 @@ async function loadPoints(){
 }
 
 async function openWorkshops(){
+  partners=await api('/api/partners');
   const ws=partners.filter(p=>p.type==='workshop');
   document.getElementById('wsList').innerHTML=ws.map(w=>`
     <div class="card" onclick="openWs(${w.id})">
@@ -307,7 +308,8 @@ async function openWs(id){
   curPartner=partners.find(p=>p.id===id);
   document.getElementById('wdTitle').textContent=curPartner.name;
   document.getElementById('wdArea').textContent=curPartner.area||'';
-  const svcs=services.filter(s=>s.partner_id===id);
+  services=await api('/api/services');
+  const svcs=services.filter(s=>+s.partner_id===+id);
   document.getElementById('wdServices').innerHTML=svcs.map(s=>`
     <div class="card" onclick='openSvc(${JSON.stringify(s)})'>
       <div class="row"><b>${s.name}</b><span class="amber">من ${s.price} ر.س</span></div>
@@ -339,11 +341,12 @@ async function bookService(){
   await openChat();
 }
 
-function openParts(cat){
+async function openParts(cat){
   document.getElementById('pTitle').textContent=cat==='الكل'?'قطع غيار':cat;
   const cats=['الكل','زيوت','بطاريات','كفرات','فلاتر'];
   document.getElementById('pCats').innerHTML=cats.map(c=>`
     <div class="chip ${c===cat?'picked':''}" onclick="openParts('${c}')">${c}</div>`).join('');
+  parts=await api('/api/parts');
   const list=cat==='الكل'?parts:parts.filter(p=>p.category===cat);
   document.getElementById('pList').innerHTML=list.map(p=>`
     <div class="card" onclick='openPart(${JSON.stringify(p)})'>
