@@ -70,7 +70,7 @@ def init_db():
     );
     """)
     # migrate columns if old DB
-    for col, ddl in [
+    for table, col, typ in [
         ("services", "brands", "TEXT DEFAULT ''"),
         ("services", "models", "TEXT DEFAULT ''"),
         ("services", "parts_changed", "TEXT DEFAULT ''"),
@@ -84,7 +84,7 @@ def init_db():
         ("parts", "years", "TEXT DEFAULT ''"),
     ]:
         try:
-            c.execute(f"ALTER TABLE {col} ADD COLUMN {ddl.split()[0]} {ddl.split(' ',1)[1]}")
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {col} {typ}")
         except Exception:
             pass
 
