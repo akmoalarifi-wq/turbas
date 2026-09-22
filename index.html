@@ -182,10 +182,9 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
   <div class="backbtn" onclick="show('s-parts')">‹</div>
   <h1 id="ptTitle">—</h1>
   <p class="dim" id="ptShop"></p>
-  <p class="dim" style="margin-bottom:8px">طريقة الاستلام</p>
-  <div class="ful" onclick="pickFul(this,'pickup')"><span>🏪</span><div style="flex:1"><b>استلام من المحل</b><div class="dim">مجاني</div></div></div>
-  <div class="ful" onclick="pickFul(this,'home')"><span>📍</span><div style="flex:1"><b>توصيل</b><div class="dim">حسب المنطقة</div></div></div>
-  <div id="zones" style="display:none"></div>
+  <p class="dim" style="margin-bottom:8px">منطقة التوصيل</p>
+  <div class="dim" style="margin-bottom:8px">صناعية العاصمة مجاني · الباقي برسوم</div>
+  <div id="zones"></div>
   <button class="btn" style="margin-top:14px" onclick="goConfirm()">متابعة</button>
 </div>
 
@@ -197,13 +196,12 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
     <div class="dim" style="margin-top:6px" id="cfMeta"></div>
     <div class="amber" style="margin-top:8px" id="cfPrice"></div>
   </div>
-  <div class="card">
-    <b>أرسل في المحادثة:</b>
-    <div class="dim" style="margin-top:8px">✔ رقم الهيكل (VIN)</div>
-    <div class="dim">✔ صورة الاستمارة</div>
-    <div class="dim">✔ صورة رقم القطعة إن أمكن</div>
+  <div class="card" style="cursor:default">
+    <b>رقم الهيكل (VIN)</b>
+    <p class="dim" style="margin:8px 0">أدخله عشان المحل يتأكد إن القطعة تناسب سيارتك</p>
+    <input class="field" id="vinInput" placeholder="رقم الهيكل" maxlength="20" dir="ltr" style="text-align:left;margin:0">
   </div>
-  <button class="btn" onclick="submitPartOrder()">إنشاء الطلب والانتقال للمحادثة</button>
+  <button class="btn" onclick="submitPartOrder()">إرسال للمحل مع رقم الهيكل</button>
 </div>
 
 <div class="screen" id="s-chat">
@@ -335,13 +333,20 @@ function openSvc(s){
   show('s-svc');
 }
 async function bookService(){
-  const order=await api('/api/orders',{method:'POST',body:{
-    user_id:user.id, partner_id:curService.partner_id, title:curService.name,
-    type:'service', price:curService.price, car_info:'سيارتي'
-  }});
-  toast('تم الحجز · +'+(order.points_earned||0)+' نقطة');
-  chatOrderId=order.id;
-  await openChat();
+  try{
+    if(!user||!user.id){ await doLogin(); }
+    if(!curService) return toast('اختر خدمة أولاً');
+    const order=await api('/api/orders',{method:'POST',body:{
+      user_id:user.id, partner_id:curService.partner_id, title:curService.name,
+      type:'service', price:curService.price, car_info:'سيارتي'
+    }});
+    toast('تم الحجز · الطلب عند الورشة');
+    chatOrderId=order.id;
+    await api('/api/orders/'+order.id+'/messages',{method:'POST',body:{
+      sender:'customer', body:'طلب حجز: '+curService.name
+    }});
+    await openChat();
+  }catch(e){ toast(e.message||'تعذر الحجز'); }
 }
 
 async function openParts(cat){
@@ -363,36 +368,31 @@ async function openParts(cat){
   show('s-parts');
 }
 function openPart(p){
-  curPart=p; ful=null; zoneFee=0; zoneName='';
+  curPart=p; ful='home'; zoneFee=0; zoneName='';
   document.getElementById('ptTitle').textContent=p.name;
   document.getElementById('ptShop').textContent=p.partner_name+' · '+p.price+' ر.س';
-  document.querySelectorAll('.ful').forEach(x=>x.classList.remove('selected'));
-  document.getElementById('zones').style.display='none';
-  show('s-part');
-}
-function pickFul(el,t){
-  document.querySelectorAll('.ful').forEach(x=>x.classList.remove('selected'));
-  el.classList.add('selected'); ful=t;
   const zb=document.getElementById('zones');
-  if(t==='home'){
-    zb.style.display='block';
-    zb.innerHTML='<p class="dim" style="margin:12px 0 4px">اختر المنطقة</p>'+zones.map(z=>`
-      <div class="zone" onclick="pickZone(this,${z.fee},'${z.name}')"><div style="flex:1"><b>${z.name}</b></div><span class="amber">${z.fee} ر.س</span></div>`).join('');
-  } else zb.style.display='none';
+  zb.innerHTML=(zones.length?zones:[{id:'sinaeya',name:'صناعية العاصمة',fee:0},{id:'nearby',name:'أحياء قريبة من الصناعية',fee:25},{id:'riyadh',name:'باقي الرياض',fee:35}]).map(z=>`
+    <div class="zone" onclick="pickZone(this,${z.fee},'${z.name}')">
+      <div style="flex:1"><b>${z.name}</b></div>
+      <span class="amber">${z.fee?z.fee+' ر.س':'مجاني'}</span>
+    </div>`).join('');
+  show('s-part');
 }
 function pickZone(el,fee,name){
   document.querySelectorAll('.zone').forEach(x=>x.classList.remove('selected'));
   el.classList.add('selected');
   zoneName=name;
-  zoneFee=(curPart.price>=300)?0:fee;
+  // صناعية العاصمة دائماً مجاني
+  zoneFee = (name.indexOf('صناعية العاصمة')>=0 || fee===0) ? 0 : fee;
 }
 function goConfirm(){
-  if(!ful) return toast('اختر طريقة الاستلام');
-  if(ful==='home'&&!zoneName) return toast('اختر المنطقة');
-  const total=curPart.price+(ful==='home'?zoneFee:0);
+  if(!zoneName) return toast('اختر منطقة التوصيل');
+  const total=curPart.price+zoneFee;
   document.getElementById('cfName').textContent=curPart.name;
-  document.getElementById('cfMeta').textContent=curPart.partner_name+(ful==='home'?' · توصيل '+zoneName:' · استلام');
-  document.getElementById('cfPrice').textContent=total+' ر.س'+(zoneFee?` (منها ${zoneFee} توصيل)`:'');
+  document.getElementById('cfMeta').textContent=curPart.partner_name+' · توصيل '+zoneName;
+  document.getElementById('cfPrice').textContent=total+' ر.س'+(zoneFee?` (منها ${zoneFee} توصيل)`:' (توصيل مجاني)');
+  const vin=document.getElementById('vinInput'); if(vin) vin.value='';
   show('s-confirm');
 }
 async function submitPartOrder(){
@@ -400,7 +400,7 @@ async function submitPartOrder(){
   if(!vin || vin.length<5) return toast('أدخل رقم الهيكل (VIN) للتأكد من المطابقة');
   const order=await api('/api/orders',{method:'POST',body:{
     user_id:user.id, partner_id:curPart.partner_id, title:curPart.name,
-    type:'part', price:curPart.price, delivery_fee:ful==='home'?zoneFee:0,
+    type:'part', price:curPart.price, delivery_fee:zoneFee,
     zone:zoneName||null, car_info:'VIN: '+vin
   }});
   chatOrderId=order.id;

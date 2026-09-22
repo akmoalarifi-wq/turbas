@@ -176,7 +176,7 @@ class App(SimpleHTTPRequestHandler):
 
         if path == "/api/delivery-zones":
             return self._send_json(200, [
-                {"id": "sinaeya", "name": "صناعية العاصمة", "fee": 15},
+                {"id": "sinaeya", "name": "صناعية العاصمة", "fee": 0},
                 {"id": "nearby", "name": "أحياء قريبة من الصناعية", "fee": 25},
                 {"id": "riyadh", "name": "باقي الرياض", "fee": 35},
             ])
