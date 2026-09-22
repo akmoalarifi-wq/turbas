@@ -294,6 +294,8 @@ async function sendMsg(){
 }
 
 try{const s=localStorage.getItem('turbas_partner');if(s){partner=JSON.parse(s);document.getElementById('wsName').textContent=partner.name;loadHome().then(()=>show('s-home'))}}catch(e){}
+setInterval(()=>{ if(partner && document.getElementById('s-home').classList.contains('active') && tab==='orders') loadHome(); }, 8000);
+
 </script>
 </body>
 </html>

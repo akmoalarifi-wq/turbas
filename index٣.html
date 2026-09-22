@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1E2124">
+<title>ترباس</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Zain:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#1E2124;--card:#2C3034;--border:#3A3E43;--amber:#E8A33D;--teal:#4FA3A8;--good:#6FBF8B;--text:#F2F0EA;--dim:#A9AEB4}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;display:flex;justify-content:center}
+#app{width:100%;max-width:430px;min-height:100vh}
+.screen{display:none;flex-direction:column;min-height:100vh;padding:20px 18px 90px}
+.screen.active{display:flex}
+h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{color:var(--amber);font-family:Zain,Cairo;font-weight:800}
+.field{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-family:Cairo;font-size:15px;margin-bottom:12px}
+.btn{background:var(--amber);color:#20221F;border:none;padding:15px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;width:100%;font-family:Cairo}
+.btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-sm{padding:10px 14px;font-size:13px;width:auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;cursor:pointer}
+.row{display:flex;justify-content:space-between;align-items:center}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cat-tile{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 10px;text-align:center;cursor:pointer}
+.cat-icon{font-size:26px;display:block;margin-bottom:4px}
+.chip{padding:9px 14px;border-radius:20px;background:var(--card);border:1px solid var(--border);cursor:pointer;font-size:13px;white-space:nowrap}
+.chip.picked{background:var(--amber);color:#20221F;border-color:var(--amber)}
+.chip-scroll{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px;padding-bottom:4px}
+.chip-scroll .chip{flex-shrink:0}
+.backbtn{width:34px;height:34px;border-radius:9px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin-bottom:14px;cursor:pointer;font-size:18px}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:64px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:50}
+.bottom-nav.hidden{display:none}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--dim);cursor:pointer;padding:6px 10px}
+.nav-item.active{color:var(--amber)}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--good);color:#16281E;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;z-index:99;opacity:0;transition:.25s;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(111,191,139,.15);color:var(--good)}
+.badge-a{background:rgba(232,163,61,.15);color:var(--amber)}
+.ful,.zone{display:flex;align-items:center;gap:12px;padding:14px;margin-top:8px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;cursor:pointer}
+.ful.selected,.zone.selected{border-color:var(--amber);background:rgba(232,163,61,.08)}
+.stepper{display:flex;justify-content:space-between;margin:16px 0;position:relative}
+.stepper::before{content:'';position:absolute;top:14px;left:10%;right:10%;height:2px;background:var(--border)}
+.step{display:flex;flex-direction:column;align-items:center;gap:6px;z-index:1;flex:1}
+.step .dot{width:28px;height:28px;border-radius:50%;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.step.done .dot,.step.active .dot{background:var(--amber);border-color:var(--amber);color:#20221F}
+.step .lbl{font-size:10px;color:var(--dim);text-align:center}
+.msg{max-width:80%;padding:10px 14px;border-radius:14px;margin-bottom:8px;font-size:13.5px}
+.msg.me{background:var(--amber);color:#20221F;align-self:flex-start}
+.msg.them{background:var(--card);border:1px solid var(--border);align-self:flex-end}
+.chatbox{display:flex;flex-direction:column;flex:1;min-height:180px}
+.tab-row{display:flex;gap:8px;margin-bottom:16px}
+.tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer}
+.tab.active{background:var(--amber);color:#20221F;border-color:var(--amber);font-weight:700}
+.account-item{display:flex;justify-content:space-between;align-items:center;padding:16px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;cursor:pointer}
+
+.promo-banner{border-radius:16px;padding:18px;margin-bottom:14px;background:linear-gradient(135deg,#E8A33D,#F5C26B);cursor:pointer}
+.promo-title{font-weight:800;font-size:15px;color:#20221F}
+.promo-sub{font-size:12px;color:#20221F;opacity:.85;margin-top:4px}
+.search-box{display:flex;gap:8px;margin-bottom:14px}
+.search-box .field{margin:0;flex:1}
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.how-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.how-card .h-num{width:26px;height:26px;border-radius:50%;background:var(--amber);color:#20221F;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:12px;margin-bottom:6px}
+.how-card b{display:block;font-size:13px;margin-bottom:4px}
+.section-title{font-size:15px;font-weight:700;margin:16px 0 10px}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="screen" id="s-login">
+  <h1 style="font-size:22px;margin-top:24px">ترباس</h1>
+  <p class="dim" style="margin-bottom:20px">جاري التحميل...</p>
+</div>
+
+<div class="screen" id="s-home">
+  <div class="row" style="margin-bottom:12px">
+    <div><div class="dim">مرحباً بك في</div><h1 style="margin:0;font-size:20px">ترباس</h1></div>
+    <span class="dim" id="ptsLabel">— نقطة</span>
+  </div>
+  <div class="card" style="background:linear-gradient(135deg,var(--card),var(--bg))" onclick="loadPoints()">
+    <div class="dim">رصيد نقاطك · كل 10 ر.س = نقطة</div>
+    <div class="amber" style="font-size:22px" id="ptsBig">—</div>
+  </div>
+  <div class="promo-banner" onclick="openParts('زيوت')">
+    <div class="promo-title">خصم 20% على تغيير الزيت</div>
+    <div class="promo-sub">لفترة محدودة · اضغط للتفاصيل</div>
+  </div>
+  <div class="search-box">
+    <input class="field" id="homeSearch" placeholder="ابحث عن خدمة أو قطعة...">
+    <button class="btn btn-sm" onclick="doSearch()">بحث</button>
+  </div>
+  <div class="cat-grid">
+    <div class="cat-tile" onclick="openWorkshops()"><span class="cat-icon">🛠️</span><b>ورش</b><span class="dim">صيانة</span></div>
+    <div class="cat-tile" onclick="openParts('الكل')"><span class="cat-icon">⚙️</span><b>قطع غيار</b><span class="dim">فلاتر</span></div>
+    <div class="cat-tile" onclick="openParts('زيوت')"><span class="cat-icon">🛢️</span><b>زيوت</b></div>
+    <div class="cat-tile" onclick="openParts('بطاريات')"><span class="cat-icon">🔋</span><b>بطاريات</b></div>
+    <div class="cat-tile" onclick="openParts('كفرات')"><span class="cat-icon">🛞</span><b>كفرات</b></div>
+    <div class="cat-tile" onclick="nav('s-orders')"><span class="cat-icon">📋</span><b>طلباتي</b></div>
+  </div>
+  <p class="section-title">كيف يشتغل ترباس؟</p>
+  <div class="how-grid">
+    <div class="how-card"><div class="h-num">1</div><b>اختر خدمتك</b><div class="dim">ورشة أو قطعة</div></div>
+    <div class="how-card"><div class="h-num">2</div><b>احجز أو اطلب</b><div class="dim">من التطبيق مباشرة</div></div>
+    <div class="how-card"><div class="h-num">3</div><b>تابع الطلب</b><div class="dim">حالات واضحة</div></div>
+    <div class="how-card"><div class="h-num">4</div><b>اكسب نقاط</b><div class="dim">كل 10 ر.س = نقطة</div></div>
+  </div>
+</div>
+
+<div class="screen" id="s-orders">
+  <h1>طلباتي</h1>
+  <div class="tab-row">
+    <div class="tab active" data-t="all" onclick="otab(this)">الكل</div>
+    <div class="tab" data-t="new" onclick="otab(this)">جديدة</div>
+    <div class="tab" data-t="active" onclick="otab(this)">جارية</div>
+    <div class="tab" data-t="done" onclick="otab(this)">مكتملة</div>
+  </div>
+  <div id="ordersList"></div>
+</div>
+
+<div class="screen" id="s-od">
+  <div class="backbtn" onclick="nav('s-orders')">‹</div>
+  <h1 id="odTitle">طلب</h1>
+  <p class="dim" id="odMeta"></p>
+  <div class="stepper" id="odStepper"></div>
+  <div class="card">
+    <div class="row"><b id="odName">—</b><span class="amber" id="odPrice">—</span></div>
+    <div class="dim" style="margin-top:6px" id="odShop"></div>
+    <div class="dim" style="margin-top:6px" id="odDel"></div>
+  </div>
+  <button class="btn" onclick="openChat()">محادثة</button>
+</div>
+
+<div class="screen" id="s-account">
+  <h1>حسابي</h1>
+  <div class="card"><div class="dim">نقاطك</div><div class="amber" style="font-size:24px" id="accPts">—</div></div>
+  <div class="account-item" onclick="loadPoints()"><span>🎁 نقاطي</span><span class="dim">‹</span></div>
+  <div class="account-item" onclick="toast('للدعم: support@turbas.sa')"><span>💬 الدعم</span><span class="dim">‹</span></div>
+</div>
+
+<div class="screen" id="s-points">
+  <div class="backbtn" onclick="nav('s-home')">‹</div>
+  <h1>نقاطي</h1>
+  <div class="card" style="text-align:center;padding:24px">
+    <div class="amber" style="font-size:32px" id="ptsTotal">0</div>
+    <div class="dim">كل 10 ر.س = نقطة</div>
+  </div>
+  <div id="ptsLog"></div>
+</div>
+
+<div class="screen" id="s-ws">
+  <div class="backbtn" onclick="nav('s-home')">‹</div>
+  <h1>الورش</h1>
+  <div id="wsList"></div>
+</div>
+
+<div class="screen" id="s-ws-d">
+  <div class="backbtn" onclick="show('s-ws')">‹</div>
+  <div class="row"><h1 id="wdTitle" style="margin:0">—</h1>
+  <button class="btn btn-sm btn-ghost" id="wdRefresh" onclick="openWs(curPartner&&curPartner.id)">تحديث</button></div>
+  <p class="dim" id="wdArea"></p>
+  <div id="wdServices"></div>
+</div>
+
+<div class="screen" id="s-svc">
+  <div class="backbtn" onclick="show('s-ws-d')">‹</div>
+  <h1 id="svTitle">—</h1>
+  <div class="row"><span class="dim" id="svMeta"></span><span class="amber" id="svPrice"></span></div>
+  <div style="margin:10px 0"><span class="badge" id="svWar">ضمان</span></div>
+  <p class="dim" id="svDesc"></p>
+  <button class="btn" style="margin-top:16px" onclick="bookService()">احجز الآن</button>
+  <p class="dim" style="text-align:center;margin-top:10px">الدفع الإلكتروني قريباً — الحجز بدون دفع حالياً</p>
+</div>
+
+<div class="screen" id="s-parts">
+  <div class="backbtn" onclick="nav('s-home')">‹</div>
+  <h1 id="pTitle">قطع غيار</h1>
+  <div class="chip-scroll" id="pCats"></div>
+  <div id="pList"></div>
+</div>
+
+<div class="screen" id="s-part">
+  <div class="backbtn" onclick="show('s-parts')">‹</div>
+  <h1 id="ptTitle">—</h1>
+  <p class="dim" id="ptShop"></p>
+  <p class="dim" style="margin-bottom:8px">طريقة الاستلام</p>
+  <div class="ful" onclick="pickFul(this,'pickup')"><span>🏪</span><div style="flex:1"><b>استلام من المحل</b><div class="dim">مجاني</div></div></div>
+  <div class="ful" onclick="pickFul(this,'home')"><span>📍</span><div style="flex:1"><b>توصيل</b><div class="dim">حسب المنطقة</div></div></div>
+  <div id="zones" style="display:none"></div>
+  <button class="btn" style="margin-top:14px" onclick="goConfirm()">متابعة</button>
+</div>
+
+<div class="screen" id="s-confirm">
+  <div class="backbtn" onclick="show('s-part')">‹</div>
+  <h1>تأكيد مطابقة القطعة</h1>
+  <div class="card" style="background:rgba(232,163,61,.1);border-color:var(--amber)">
+    <b id="cfName">—</b>
+    <div class="dim" style="margin-top:6px" id="cfMeta"></div>
+    <div class="amber" style="margin-top:8px" id="cfPrice"></div>
+  </div>
+  <div class="card">
+    <b>أرسل في المحادثة:</b>
+    <div class="dim" style="margin-top:8px">✔ رقم الهيكل (VIN)</div>
+    <div class="dim">✔ صورة الاستمارة</div>
+    <div class="dim">✔ صورة رقم القطعة إن أمكن</div>
+  </div>
+  <button class="btn" onclick="submitPartOrder()">إنشاء الطلب والانتقال للمحادثة</button>
+</div>
+
+<div class="screen" id="s-chat">
+  <div class="backbtn" onclick="nav('s-orders')">‹</div>
+  <h1>محادثة</h1>
+  <div class="chatbox" id="chatBox" style="flex-direction:column-reverse"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <input class="field" id="chatInput" placeholder="اكتب أو أرسل VIN..." style="margin:0">
+    <button class="btn btn-ghost" style="width:auto;padding:14px" onclick="sendChat('📎 صورة استمارة / VIN')">📷</button>
+    <button class="btn" style="width:auto;padding:14px 16px" onclick="sendChat()">إرسال</button>
+  </div>
+</div>
+</div>
+
+<div class="bottom-nav hidden" id="nav">
+  <div class="nav-item active" data-s="s-home" onclick="nav('s-home')"><span>🏠</span><span>رئيسية</span></div>
+  <div class="nav-item" data-s="s-orders" onclick="nav('s-orders')"><span>📋</span><span>طلباتي</span></div>
+  <div class="nav-item" data-s="s-chat" onclick="openLatestChat()"><span>💬</span><span>محادثات</span></div>
+  <div class="nav-item" data-s="s-account" onclick="nav('s-account')"><span>👤</span><span>حسابي</span></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+const STEPS = ['قيد المراجعة','مقبول','جاري التنفيذ','مكتمل'];
+let user=null, partners=[], services=[], parts=[], zones=[];
+let curPartner=null, curService=null, curPart=null, ful=null, zoneFee=0, zoneName='', chatOrderId=null, ordersTab='all';
+
+async function api(path, opts={}) {
+  const r = await fetch(API+path, {
+    headers:{'Content-Type':'application/json'},
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.error || ('خطأ '+r.status));
+  return d;
+}
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  const main=['s-home','s-orders','s-account','s-ws','s-parts','s-od','s-chat'];
+  const n=document.getElementById('nav');
+  if(main.includes(id)){ n.classList.remove('hidden'); document.querySelectorAll('.nav-item').forEach(i=>i.classList.toggle('active',i.dataset.s===id || (id==='s-chat'&&i.dataset.s==='s-chat'))); }
+  else n.classList.add('hidden');
+}
+function nav(id){ if(id==='s-orders') loadOrders(); if(id==='s-account'&&user) document.getElementById('accPts').textContent=(document.getElementById('ptsBig').textContent||'—'); show(id); }
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+
+async function doLogin(){
+  try{
+    const phone=(localStorage.getItem('turbas_phone')||'0512345678');
+    const res=await api('/api/auth/login',{method:'POST',body:{phone}});
+    user=res.user;
+    localStorage.setItem('turbas_user',JSON.stringify(user));
+    localStorage.setItem('turbas_phone', phone);
+    await refreshHome();
+    show('s-home');
+  }catch(e){toast(e.message||'تعذر الاتصال')}
+}
+function logout(){user=null;localStorage.removeItem('turbas_user');show('s-login')}
+
+function doSearch(){
+  const q=(document.getElementById('homeSearch').value||'').trim();
+  if(!q) return toast('اكتب كلمة بحث');
+  if(/زيت/.test(q)) openParts('زيوت');
+  else if(/كفر|إطار/.test(q)) openParts('كفرات');
+  else if(/بطار/.test(q)) openParts('بطاريات');
+  else if(/ورش|صيان/.test(q)) openWorkshops();
+  else openParts('الكل');
+  toast('نتائج: '+q);
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && user){ api('/api/services').then(s=>services=s).catch(()=>{}); api('/api/parts').then(p=>parts=p).catch(()=>{}); }});
+async function refreshHome(){
+  const pts=await api('/api/users/'+user.id+'/points');
+  document.getElementById('ptsLabel').textContent=pts.total+' نقطة';
+  document.getElementById('ptsBig').textContent=pts.total+' نقطة';
+  partners=await api('/api/partners');
+  services=await api('/api/services');
+  parts=await api('/api/parts');
+  zones=await api('/api/delivery-zones');
+}
+
+async function loadPoints(){
+  const pts=await api('/api/users/'+user.id+'/points');
+  document.getElementById('ptsTotal').textContent=pts.total;
+  document.getElementById('ptsLog').innerHTML=pts.log.map(l=>`
+    <div class="card" style="cursor:default"><div class="row"><b>${l.label}</b><span class="amber">+${l.points}</span></div>
+    <div class="dim">${(l.created_at||'').slice(0,16)}</div></div>`).join('')||'<p class="dim">ما فيه سجل</p>';
+  show('s-points');
+}
+
+async function openWorkshops(){
+  partners=await api('/api/partners');
+  const ws=partners.filter(p=>p.type==='workshop');
+  document.getElementById('wsList').innerHTML=ws.map(w=>`
+    <div class="card" onclick="openWs(${w.id})">
+      <div class="row"><b>${w.name}</b></div>
+      <div class="dim" style="margin-top:6px">${w.area||''}</div>
+    </div>`).join('');
+  show('s-ws');
+}
+async function openWs(id){
+  curPartner=partners.find(p=>p.id===id);
+  document.getElementById('wdTitle').textContent=curPartner.name;
+  document.getElementById('wdArea').textContent=curPartner.area||'';
+  services=await api('/api/services');
+  const svcs=services.filter(s=>+s.partner_id===+id);
+  document.getElementById('wdServices').innerHTML=svcs.map(s=>`
+    <div class="card" onclick='openSvc(${JSON.stringify(s)})'>
+      <div class="row"><b>${s.name}</b><span class="amber">من ${s.price} ر.س</span></div>
+      <div class="dim" style="margin-top:4px">⏱ ${s.duration||''} · ${s.problem||''}</div>
+      <div class="dim">${s.labor_only?'يد عاملة فقط':''} ${(s.brands||'')?'· '+s.brands:''} ${(s.models||'')?'· '+s.models:''}</div>
+      <div style="margin-top:8px"><span class="badge">🛡 ضمان ${s.warranty_days||30} يوم</span></div>
+    </div>`).join('')||'<p class="dim">ما فيه خدمات</p>';
+  show('s-ws-d');
+}
+function openSvc(s){
+  curService=s;
+  document.getElementById('svTitle').textContent=s.name;
+  document.getElementById('svMeta').textContent=`⏱ ${s.duration} · ${s.problem}`;
+  document.getElementById('svPrice').textContent='من '+s.price+' ر.س';
+  document.getElementById('svWar').textContent='🛡 ضمان الورشة '+s.warranty_days+' يوم';
+  document.getElementById('svDesc').textContent=(s.description||'')+
+    (s.parts_changed?('\nيتغير: '+s.parts_changed):'')+
+    (s.includes?('\nشامل: '+s.includes):'')+
+    (s.labor_only?'\n(شغل يد فقط)':'');
+  show('s-svc');
+}
+async function bookService(){
+  const order=await api('/api/orders',{method:'POST',body:{
+    user_id:user.id, partner_id:curService.partner_id, title:curService.name,
+    type:'service', price:curService.price, car_info:'سيارتي'
+  }});
+  toast('تم الحجز · +'+(order.points_earned||0)+' نقطة');
+  chatOrderId=order.id;
+  await openChat();
+}
+
+async function openParts(cat){
+  document.getElementById('pTitle').textContent=cat==='الكل'?'قطع غيار (فلاتر وأجزاء)':cat;
+  const cats=['الكل','فلاتر','أخرى'];
+  document.getElementById('pCats').innerHTML=cats.map(c=>`
+    <div class="chip ${c===cat?'picked':''}" onclick="openParts('${c}')">${c}</div>`).join('');
+  parts=await api('/api/parts');
+  const list=cat==='الكل'?parts:parts.filter(p=>p.category===cat);
+  document.getElementById('pList').innerHTML=list.map(p=>`
+    <div class="card" onclick='openPart(${JSON.stringify(p)})'>
+      <div class="row"><b>${p.name}</b><span class="amber">${p.price} ر.س</span></div>
+      <div class="dim" style="margin-top:4px">${p.partner_name||''} · ${p.meta||''}</div>
+      <div class="dim">${p.grade?('فئة: '+p.grade):''} ${p.part_number?('· رقم: '+p.part_number):''} ${p.origin?('· '+p.origin):''}</div>
+      <div class="dim">${(p.brands||p.models)?('يناسب: '+(p.brands||'')+' '+(p.models||'')+' '+(p.years||'')):' ضمان مطابقة عبر VIN'}</div>
+      <div style="margin-top:6px"><span class="badge">🛡 ${p.warranty||'ضمان المحل'}</span>
+      ${p.grade==='أصلي'?'<span class="badge" style="margin-right:6px">أصلي OEM</span>':''}</div>
+    </div>`).join('')||'<p class="dim">ما فيه قطع</p>';
+  show('s-parts');
+}
+function openPart(p){
+  curPart=p; ful=null; zoneFee=0; zoneName='';
+  document.getElementById('ptTitle').textContent=p.name;
+  document.getElementById('ptShop').textContent=p.partner_name+' · '+p.price+' ر.س';
+  document.querySelectorAll('.ful').forEach(x=>x.classList.remove('selected'));
+  document.getElementById('zones').style.display='none';
+  show('s-part');
+}
+function pickFul(el,t){
+  document.querySelectorAll('.ful').forEach(x=>x.classList.remove('selected'));
+  el.classList.add('selected'); ful=t;
+  const zb=document.getElementById('zones');
+  if(t==='home'){
+    zb.style.display='block';
+    zb.innerHTML='<p class="dim" style="margin:12px 0 4px">اختر المنطقة</p>'+zones.map(z=>`
+      <div class="zone" onclick="pickZone(this,${z.fee},'${z.name}')"><div style="flex:1"><b>${z.name}</b></div><span class="amber">${z.fee} ر.س</span></div>`).join('');
+  } else zb.style.display='none';
+}
+function pickZone(el,fee,name){
+  document.querySelectorAll('.zone').forEach(x=>x.classList.remove('selected'));
+  el.classList.add('selected');
+  zoneName=name;
+  zoneFee=(curPart.price>=300)?0:fee;
+}
+function goConfirm(){
+  if(!ful) return toast('اختر طريقة الاستلام');
+  if(ful==='home'&&!zoneName) return toast('اختر المنطقة');
+  const total=curPart.price+(ful==='home'?zoneFee:0);
+  document.getElementById('cfName').textContent=curPart.name;
+  document.getElementById('cfMeta').textContent=curPart.partner_name+(ful==='home'?' · توصيل '+zoneName:' · استلام');
+  document.getElementById('cfPrice').textContent=total+' ر.س'+(zoneFee?` (منها ${zoneFee} توصيل)`:'');
+  show('s-confirm');
+}
+async function submitPartOrder(){
+  const vin=(document.getElementById('vinInput').value||'').trim();
+  if(!vin || vin.length<5) return toast('أدخل رقم الهيكل (VIN) للتأكد من المطابقة');
+  const order=await api('/api/orders',{method:'POST',body:{
+    user_id:user.id, partner_id:curPart.partner_id, title:curPart.name,
+    type:'part', price:curPart.price, delivery_fee:ful==='home'?zoneFee:0,
+    zone:zoneName||null, car_info:'VIN: '+vin
+  }});
+  chatOrderId=order.id;
+  await api('/api/orders/'+order.id+'/messages',{method:'POST',body:{
+    sender:'customer',
+    body:'طلب قطعة: '+curPart.name+'\nرقم الهيكل (VIN): '+vin+'\nيرجى التأكد من مطابقة القطعة للسيارة'
+  }});
+  toast('وصل الطلب للمحل مع رقم الهيكل');
+  await openChat();
+}
+
+async function loadOrders(){
+  let list=await api('/api/orders?user_id='+user.id);
+  if(ordersTab!=='all') list=list.filter(o=>o.status===ordersTab);
+  document.getElementById('ordersList').innerHTML=list.length?list.map(o=>`
+    <div class="card" onclick="openOd(${o.id})">
+      <div class="row"><b>${o.title}</b><span class="badge ${o.status==='done'?'':'badge-a'}">${o.status_text}</span></div>
+      <div class="dim" style="margin-top:6px">${o.partner_name||''} · #${o.id}</div>
+      <div class="row" style="margin-top:6px"><span class="amber">${o.price} ر.س</span>
+      ${o.delivery_fee?`<span class="dim">توصيل ${o.delivery_fee}</span>`:''}</div>
+    </div>`).join(''):'<p class="dim" style="text-align:center;padding:30px">ما فيه طلبات</p>';
+}
+function otab(el){
+  document.querySelectorAll('#s-orders .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); ordersTab=el.dataset.t; loadOrders();
+}
+async function openOd(id){
+  const o=await api('/api/orders/'+id);
+  chatOrderId=o.id;
+  document.getElementById('odTitle').textContent='طلب #'+o.id;
+  document.getElementById('odMeta').textContent=(o.created_at||'').slice(0,16)+' · '+o.status_text;
+  document.getElementById('odName').textContent=o.title;
+  document.getElementById('odPrice').textContent=o.price+' ر.س';
+  document.getElementById('odShop').textContent=o.partner_name||'';
+  document.getElementById('odDel').textContent=o.delivery_fee?('توصيل: '+o.delivery_fee+' ر.س · '+(o.zone||'')):'بدون توصيل';
+  let step=1;
+  if(o.status==='active') step=o.status_text.includes('جاري')?3:2;
+  if(o.status==='done') step=4;
+  document.getElementById('odStepper').innerHTML=STEPS.map((l,i)=>`
+    <div class="step ${i+1<step?'done':i+1===step?'active':''}"><div class="dot">${i+1<step?'✓':i+1}</div><div class="lbl">${l}</div></div>`).join('');
+  show('s-od');
+}
+
+async function openLatestChat(){
+  try{
+    const list=await api('/api/orders?user_id='+user.id);
+    if(!list.length){ toast('ما فيه محادثات بعد — سوّ طلب أولاً'); return nav('s-orders'); }
+    chatOrderId=list[0].id;
+    await openChat();
+  }catch(e){toast(e.message)}
+}
+async function openChat(){
+  if(!chatOrderId) return;
+  const msgs=await api('/api/orders/'+chatOrderId+'/messages');
+  document.getElementById('chatBox').innerHTML=msgs.length?msgs.slice().reverse().map(m=>
+    `<div class="msg ${m.sender==='customer'?'me':'them'}">${m.body}</div>`
+  ).join(''):'<p class="dim">ابدأ المحادثة — أرسل رقم الهيكل أو صورة الاستمارة</p>';
+  show('s-chat');
+}
+async function sendChat(preset){
+  const i=document.getElementById('chatInput');
+  const v=preset||i.value.trim();
+  if(!v||!chatOrderId) return;
+  await api('/api/orders/'+chatOrderId+'/messages',{method:'POST',body:{sender:'customer',body:v}});
+  i.value='';
+  openChat();
+}
+
+// دخول تلقائي بدون شاشة تسجيل — ما فيه دخول كعميل
+(async function boot(){
+  try{
+    let s = localStorage.getItem('turbas_user');
+    if (s) {
+      user = JSON.parse(s);
+    } else {
+      const res = await api('/api/auth/login', {method:'POST', body:{phone:'0512345678', name:'عميل'}});
+      user = res.user;
+      localStorage.setItem('turbas_user', JSON.stringify(user));
+    }
+    await refreshHome();
+    show('s-home');
+  } catch(e) {
+    toast('تعذر الاتصال بالسيرفر');
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>
