@@ -1,27 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-ترباس — سيرفر كامل (موقع العميل + لوحة الورش + API)
-===============================================
-تشغيل:
-  cd turbas
-  python3 server.py
-
-ثم افتح:
-  http://127.0.0.1:5000          ← موقع العميل
-  http://127.0.0.1:5000/partner  ← لوحة الورش
-  http://127.0.0.1:5000/api/health
-"""
+"""ترباس — سيرفر كامل"""
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
-import json, sqlite3, re, mimetypes
+import json, sqlite3, re, mimetypes, os
 from datetime import datetime
 
-import os
 HOST, PORT = "0.0.0.0", int(os.environ.get("PORT", 5000))
 ROOT = Path(__file__).resolve().parent
-STATIC = ROOT
+STATIC = ROOT / "static"
+if not (STATIC / "index.html").exists():
+    STATIC = ROOT
 DB = ROOT / "data" / "turbas.db"
 DB.parent.mkdir(parents=True, exist_ok=True)
 
@@ -44,17 +34,24 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS partners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT, phone TEXT UNIQUE, type TEXT DEFAULT 'workshop', area TEXT DEFAULT 'الرياض'
+        name TEXT, phone TEXT UNIQUE, type TEXT DEFAULT 'workshop', area TEXT DEFAULT 'صناعية العاصمة'
     );
     CREATE TABLE IF NOT EXISTS services (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         partner_id INTEGER, name TEXT, problem TEXT, price REAL,
-        duration TEXT, warranty_days INTEGER, description TEXT
+        duration TEXT, warranty_days INTEGER, description TEXT,
+        brands TEXT DEFAULT '', models TEXT DEFAULT '',
+        parts_changed TEXT DEFAULT '', includes TEXT DEFAULT '',
+        labor_only INTEGER DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS parts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         partner_id INTEGER, name TEXT, category TEXT, price REAL,
-        meta TEXT, warranty TEXT
+        meta TEXT, warranty TEXT,
+        part_number TEXT DEFAULT '', origin TEXT DEFAULT '',
+        grade TEXT DEFAULT 'تجاري',
+        brands TEXT DEFAULT '', models TEXT DEFAULT '',
+        years TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,35 +69,56 @@ def init_db():
         user_id INTEGER, points INTEGER, label TEXT, created_at TEXT
     );
     """)
+    # migrate columns if old DB
+    for col, ddl in [
+        ("services", "brands", "TEXT DEFAULT ''"),
+        ("services", "models", "TEXT DEFAULT ''"),
+        ("services", "parts_changed", "TEXT DEFAULT ''"),
+        ("services", "includes", "TEXT DEFAULT ''"),
+        ("services", "labor_only", "INTEGER DEFAULT 1"),
+        ("parts", "part_number", "TEXT DEFAULT ''"),
+        ("parts", "origin", "TEXT DEFAULT ''"),
+        ("parts", "grade", "TEXT DEFAULT 'تجاري'"),
+        ("parts", "brands", "TEXT DEFAULT ''"),
+        ("parts", "models", "TEXT DEFAULT ''"),
+        ("parts", "years", "TEXT DEFAULT ''"),
+    ]:
+        try:
+            c.execute(f"ALTER TABLE {col} ADD COLUMN {ddl.split()[0]} {ddl.split(' ',1)[1]}")
+        except Exception:
+            pass
+
     if c.execute("SELECT COUNT(*) FROM partners").fetchone()[0] == 0:
         partners = [
-            ("ورشة رقم 1", "0500000001", "workshop", "شمال الرياض"),
-            ("ورشة رقم 2", "0500000002", "workshop", "وسط الرياض"),
-            ("ورشة رقم 3", "0500000003", "workshop", "شرق الرياض"),
-            ("محل رقم 6", "0500000006", "parts", "وسط الرياض"),
-            ("محل رقم 8", "0500000008", "parts", "جنوب الرياض"),
+            ("ورشة رقم 1", "0500000001", "workshop", "صناعية العاصمة"),
+            ("ورشة رقم 2", "0500000002", "workshop", "صناعية العاصمة"),
+            ("ورشة رقم 3", "0500000003", "workshop", "صناعية العاصمة"),
+            ("محل رقم 6", "0500000006", "parts", "صناعية العاصمة"),
+            ("محل رقم 8", "0500000008", "parts", "صناعية العاصمة"),
         ]
         c.executemany("INSERT INTO partners (name, phone, type, area) VALUES (?,?,?,?)", partners)
         services = [
-            (1, "تغيير زيت مكينة", "صيانة دورية", 220, "45 دقيقة", 30, "زيت + فلتر"),
-            (1, "إصلاح رديتر", "رديتر وتبريد", 350, "ساعتين", 60, "فحص ولحام أو تبديل"),
-            (1, "صيانة دورية كاملة", "صيانة دورية", 450, "ساعتين", 30, "زيت + فلاتر + فحص"),
-            (2, "تغيير فحمات أمامية", "فرامل", 280, "ساعة ونص", 60, "فحمات سيراميك"),
-            (2, "صيانة قير", "قير", 450, "3 ساعات", 90, "زيت قير + فلتر"),
-            (3, "فحص كمبيوتر", "كهرباء", 120, "30 دقيقة", 7, "قراءة أكواد وتقرير"),
-            (3, "تعبئة غاز تكييف", "تكييف", 180, "ساعة", 30, "فحص وتعبئة"),
+            (1, "تغيير زيت مكينة", "صيانة دورية", 220, "45 دقيقة", 30, "خدمة يد عاملة — الزيت حسب اختيارك",
+             "تويوتا,لكزس", "كامري,كورولا,ES", "فلتر زيت", "فك وتركيب فلتر · تصفية الزيت · فحص مستوى", 1),
+            (1, "إصلاح رديتر", "رديتر وتبريد", 350, "ساعتين", 60, "فحص ولحام أو تبديل",
+             "تويوتا,نيسان", "لاندكروزر,باترول Y62", "رديتر / غطاء", "فحص ضغط · لحام أو تبديل · تعبئة", 0),
+            (2, "تغيير فحمات أمامية", "فرامل", 280, "ساعة ونص", 60, "فحمات سيراميك",
+             "هيونداي,كيا", "النترا,سيراتو", "فحمات أمامية", "فك وتركيب · تنظيف دسكات", 0),
+            (3, "فحص كمبيوتر", "كهرباء", 120, "30 دقيقة", 7, "قراءة أكواد وتقرير",
+             "", "", "", "تقرير أكواد", 1),
         ]
-        c.executemany("INSERT INTO services (partner_id,name,problem,price,duration,warranty_days,description) VALUES (?,?,?,?,?,?,?)", services)
+        c.executemany("""INSERT INTO services
+            (partner_id,name,problem,price,duration,warranty_days,description,brands,models,parts_changed,includes,labor_only)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", services)
         parts = [
-            (4, "شل هيلكس 5W-30", "زيوت", 85, "4 لتر · شبه تخليقي", "ضمان المحل"),
-            (4, "موبيل 1 5W-30", "زيوت", 165, "4 لتر · تخليقي كامل", "ضمان المحل"),
-            (4, "أكوم 70 أمبير", "بطاريات", 380, "70A", "18 شهر"),
-            (5, "بوش S5 90 أمبير", "بطاريات", 720, "90A", "36 شهر"),
-            (5, "ميشلان Primacy 4", "كفرات", 520, "215/60R16", "ضمان المصنع"),
-            (4, "بريدجستون Dueler", "كفرات", 550, "265/65R17", "ضمان المصنع"),
-            (5, "فلتر زيت تويوتا", "فلاتر", 45, "أصلي", "ضمان المحل"),
+            (4, "شل هيلكس 5W-30", "زيوت", 85, "4 لتر", "ضمان المحل", "SHX530", "هولندا", "درجة أولى", "تويوتا,هيونداي", "كامري,النترا", "2015-2024"),
+            (4, "أكوم 70 أمبير", "بطاريات", 380, "70A", "18 شهر", "AC70", "السعودية", "تجاري", "تويوتا,نيسان", "كامري,التيما", "2012-2024"),
+            (5, "بوش S5 90 أمبير", "بطاريات", 720, "90A", "36 شهر", "BOSCHS590", "ألمانيا", "أصلي", "شيفروليه,جمس", "تاهو,يوكون", "2015-2024"),
+            (5, "فلتر زيت تويوتا أصلي", "فلاتر", 45, "OEM", "ضمان المحل", "90915-YZZD2", "اليابان", "أصلي", "تويوتا", "كامري,كورولا", "2018-2024"),
         ]
-        c.executemany("INSERT INTO parts (partner_id,name,category,price,meta,warranty) VALUES (?,?,?,?,?,?)", parts)
+        c.executemany("""INSERT INTO parts
+            (partner_id,name,category,price,meta,warranty,part_number,origin,grade,brands,models,years)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", parts)
         c.execute("INSERT INTO users (phone, name, created_at) VALUES (?,?,?)",
                   ("0512345678", "عميل تجريبي", datetime.now().isoformat()))
         uid = c.lastrowid
@@ -109,13 +127,9 @@ def init_db():
         c.execute("""INSERT INTO orders (user_id,partner_id,title,type,price,delivery_fee,status,status_text,car_info,created_at)
                      VALUES (?,?,?,?,?,?,?,?,?,?)""",
                   (uid, 1, "تغيير زيت مكينة", "service", 280, 0, "active", "جاري التنفيذ", "كامري 2021", datetime.now().isoformat()))
-        c.execute("""INSERT INTO orders (user_id,partner_id,title,type,price,delivery_fee,status,status_text,car_info,zone,created_at)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
-                  (uid, 4, "بطارية أكوم 70 أمبير", "part", 380, 15, "new", "قيد المراجعة", "كامري 2021", "وسط الرياض", datetime.now().isoformat()))
         c.execute("INSERT INTO points_log (user_id,points,label,created_at) VALUES (?,?,?,?)",
                   (uid, 28, "طلب تجريبي", datetime.now().isoformat()))
-        c.execute("INSERT INTO messages (order_id,sender,body,created_at) VALUES (?,?,?,?)",
-                  (1, "workshop", "مرحباً، استلمنا طلبك وبدأنا الشغل", datetime.now().isoformat()))
+    c.execute("UPDATE partners SET area=?", ("صناعية العاصمة",))
     conn.commit()
     conn.close()
 
@@ -128,7 +142,7 @@ class App(SimpleHTTPRequestHandler):
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS,DELETE")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _send_json(self, code, data):
@@ -152,23 +166,19 @@ class App(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         path, qs = u.path, parse_qs(u.query)
 
-        # صفحات
         if path in ("/", "/index.html"):
             return self._file(STATIC / "index.html")
         if path in ("/partner", "/partner.html"):
             return self._file(STATIC / "partner.html")
 
-        # API
         if path == "/api/health":
             return self._send_json(200, {"ok": True, "service": "turbas"})
 
         if path == "/api/delivery-zones":
             return self._send_json(200, [
-                {"id": "north", "name": "شمال الرياض", "fee": 25},
-                {"id": "center", "name": "وسط الرياض", "fee": 15},
-                {"id": "east", "name": "شرق الرياض", "fee": 20},
-                {"id": "west", "name": "غرب الرياض", "fee": 22},
-                {"id": "south", "name": "جنوب الرياض", "fee": 30},
+                {"id": "sinaeya", "name": "صناعية العاصمة", "fee": 15},
+                {"id": "nearby", "name": "أحياء قريبة من الصناعية", "fee": 25},
+                {"id": "riyadh", "name": "باقي الرياض", "fee": 35},
             ])
 
         if path == "/api/partners":
@@ -179,7 +189,7 @@ class App(SimpleHTTPRequestHandler):
 
         if path == "/api/services":
             conn = get_db()
-            q = """SELECT s.*, p.name as partner_name FROM services s
+            q = """SELECT s.*, p.name as partner_name, p.area as partner_area FROM services s
                    JOIN partners p ON p.id=s.partner_id WHERE 1=1"""
             params = []
             if "partner_id" in qs:
@@ -192,9 +202,11 @@ class App(SimpleHTTPRequestHandler):
 
         if path == "/api/parts":
             conn = get_db()
-            q = """SELECT pt.*, p.name as partner_name FROM parts pt
+            q = """SELECT pt.*, p.name as partner_name, p.area as partner_area FROM parts pt
                    JOIN partners p ON p.id=pt.partner_id WHERE 1=1"""
             params = []
+            if "partner_id" in qs:
+                q += " AND pt.partner_id=?"; params.append(qs["partner_id"][0])
             if "category" in qs and qs["category"][0] != "الكل":
                 q += " AND pt.category=?"; params.append(qs["category"][0])
             data = j(conn.execute(q, params).fetchall())
@@ -248,17 +260,13 @@ class App(SimpleHTTPRequestHandler):
             if not row: return self._send_json(404, {"error": "not found"})
             return self._send_json(200, dict(row))
 
-        # ملفات static أخرى
-        if path.startswith("/static/"):
-            return self._file(STATIC / path[8:])
         f = STATIC / path.lstrip("/")
         if f.is_file():
             return self._file(f)
         return self._send_json(404, {"error": "not found", "path": path})
 
     def do_POST(self):
-        u = urlparse(self.path)
-        path = u.path
+        path = urlparse(self.path).path
         data = self._read_json()
 
         if path == "/api/auth/login":
@@ -282,6 +290,36 @@ class App(SimpleHTTPRequestHandler):
             conn.close()
             if not row: return self._send_json(404, {"error": "غير مسجل — جرب 0500000001"})
             return self._send_json(200, {"partner": dict(row)})
+
+        if path == "/api/services":
+            conn = get_db()
+            conn.execute("""INSERT INTO services
+                (partner_id,name,problem,price,duration,warranty_days,description,brands,models,parts_changed,includes,labor_only)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (data.get("partner_id"), data.get("name"), data.get("problem") or "صيانة دورية",
+                 data.get("price", 0), data.get("duration") or "", data.get("warranty_days", 30),
+                 data.get("description") or "", data.get("brands") or "", data.get("models") or "",
+                 data.get("parts_changed") or "", data.get("includes") or "",
+                 1 if data.get("labor_only", True) else 0))
+            conn.commit()
+            sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn.close()
+            return self._send_json(201, {"id": sid, "ok": True})
+
+        if path == "/api/parts":
+            conn = get_db()
+            conn.execute("""INSERT INTO parts
+                (partner_id,name,category,price,meta,warranty,part_number,origin,grade,brands,models,years)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (data.get("partner_id"), data.get("name"), data.get("category") or "فلاتر",
+                 data.get("price", 0), data.get("meta") or "", data.get("warranty") or "ضمان المحل",
+                 data.get("part_number") or "", data.get("origin") or "",
+                 data.get("grade") or "تجاري", data.get("brands") or "",
+                 data.get("models") or "", data.get("years") or ""))
+            conn.commit()
+            pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            conn.close()
+            return self._send_json(201, {"id": pid, "ok": True})
 
         if path == "/api/orders":
             conn = get_db()
@@ -325,17 +363,22 @@ class App(SimpleHTTPRequestHandler):
             conn.close()
             return self._send_json(201, {"id": mid})
 
-        m = re.match(r"^/api/users/(\d+)/cars$", path)
-        if m:
-            uid = m.group(1)
-            conn = get_db()
-            conn.execute("INSERT INTO cars (user_id,brand,model,generation,year,color) VALUES (?,?,?,?,?,?)",
-                         (uid, data.get("brand"), data.get("model"), data.get("generation"), data.get("year"), data.get("color")))
-            conn.commit()
-            cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            conn.close()
-            return self._send_json(201, {"id": cid})
+        return self._send_json(404, {"error": "not found"})
 
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        m = re.match(r"^/api/services/(\d+)$", path)
+        if m:
+            conn = get_db()
+            conn.execute("DELETE FROM services WHERE id=?", (m.group(1),))
+            conn.commit(); conn.close()
+            return self._send_json(200, {"ok": True})
+        m = re.match(r"^/api/parts/(\d+)$", path)
+        if m:
+            conn = get_db()
+            conn.execute("DELETE FROM parts WHERE id=?", (m.group(1),))
+            conn.commit(); conn.close()
+            return self._send_json(200, {"ok": True})
         return self._send_json(404, {"error": "not found"})
 
     def _file(self, path: Path):
@@ -356,13 +399,5 @@ class App(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     init_db()
-    print("=" * 50)
-    print("  ترباس جاهز")
-    print("  موقع العميل : http://127.0.0.1:%d" % PORT)
-    print("  لوحة الورش  : http://127.0.0.1:%d/partner" % PORT)
-    print("  API         : http://127.0.0.1:%d/api/health" % PORT)
-    print("=" * 50)
-    print("  دخول ورشة تجريبي: 0500000001")
-    print("  دخول عميل تجريبي: 0512345678")
-    print("=" * 50)
+    print("ترباس → http://127.0.0.1:%d" % PORT)
     HTTPServer((HOST, PORT), App).serve_forever()

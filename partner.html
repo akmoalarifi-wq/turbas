@@ -16,10 +16,11 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 .btn{background:var(--amber);color:#20221F;border:none;padding:14px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;width:100%;font-family:Cairo}
 .btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
 .btn-sm{padding:10px 14px;font-size:13px;width:auto}
+.btn-danger{background:rgba(229,115,115,.2);color:#e57373;border:1px solid #e57373}
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;cursor:pointer}
 .row{display:flex;justify-content:space-between;align-items:center}
-.tab-row{display:flex;gap:8px;margin-bottom:16px}
-.tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer}
+.tab-row{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{flex:1;text-align:center;padding:10px 6px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:12px;cursor:pointer;min-width:70px}
 .tab.active{background:var(--amber);color:#20221F;border-color:var(--amber);font-weight:700}
 .stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
 .stat b{display:block;font-size:20px;color:var(--amber)}.stat span{font-size:11px;color:var(--dim)}
@@ -33,54 +34,58 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--good);color:#16281E;padding:12px 20px;border-radius:30px;font-weight:700;font-size:13px;z-index:99;opacity:0;transition:.25s;max-width:90%;text-align:center}
 .toast.show{opacity:1}
 .logo{font-size:22px;font-weight:800}.logo span{color:var(--amber)}
+label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
+.check{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px}
 </style>
 </head>
 <body>
 <div id="app">
 <div class="screen active" id="s-login">
   <div class="logo">ترباس <span>شركاء</span></div>
-  <p class="dim" style="margin:8px 0 24px">لوحة الورشة ومحل القطع</p>
+  <p class="dim" style="margin:8px 0 24px">لوحة الورشة ومحل القطع · صناعية العاصمة</p>
   <input class="field" id="phone" value="0500000001" placeholder="رقم الجوال">
   <button class="btn" onclick="login()">دخول</button>
-  <p class="dim" style="margin-top:16px;text-align:center">تجريبي: 0500000001 أو 0500000006</p>
-  <p class="dim" style="text-align:center;margin-top:8px"><a href="/" style="color:var(--amber)">← موقع العميل</a></p>
+  <p class="dim" style="margin-top:16px;text-align:center">ورشة: 0500000001 · محل: 0500000006</p>
 </div>
+
 <div class="screen" id="s-home">
-  <div class="row" style="margin-bottom:16px">
-    <div><div class="dim">مرحباً</div><h1 id="wsName" style="margin:0">—</h1></div>
+  <div class="row" style="margin-bottom:12px">
+    <div><div class="dim">مرحباً</div><h1 id="wsName" style="margin:0">—</h1>
+    <div class="dim" id="wsArea">صناعية العاصمة</div></div>
     <span class="dim" style="cursor:pointer" onclick="logout()">خروج</span>
   </div>
-  <div class="row" style="gap:8px;margin-bottom:16px">
+  <div class="row" style="gap:8px;margin-bottom:12px">
     <div class="stat"><b id="stNew">0</b><span>جديدة</span></div>
     <div class="stat"><b id="stActive">0</b><span>جارية</span></div>
     <div class="stat"><b id="stDone">0</b><span>مكتملة</span></div>
   </div>
   <div class="tab-row">
-    <div class="tab active" data-t="new" onclick="setTab(this)">جديدة</div>
-    <div class="tab" data-t="active" onclick="setTab(this)">جارية</div>
-    <div class="tab" data-t="done" onclick="setTab(this)">مكتملة</div>
+    <div class="tab active" data-t="orders" onclick="mainTab(this)">الطلبات</div>
+    <div class="tab" data-t="catalog" onclick="mainTab(this)">خدماتي / قطعي</div>
+    <div class="tab" data-t="add" onclick="mainTab(this)">إضافة</div>
   </div>
-  <div id="list"></div>
+  <div id="mainBody"></div>
 </div>
+
 <div class="screen" id="s-order">
-  <div class="backbtn" onclick="show('s-home');loadOrders()">‹</div>
+  <div class="backbtn" onclick="show('s-home');loadHome()">‹</div>
   <h1 id="oTitle">طلب</h1>
   <p class="dim" id="oMeta"></p>
   <div class="card" style="cursor:default">
     <div class="row"><b id="oService">—</b><span class="amber" id="oPrice">—</span></div>
     <div class="dim" style="margin-top:8px" id="oCar"></div>
     <div class="dim" style="margin-top:8px" id="oComm"></div>
-    <div class="dim" style="margin-top:4px" id="oDelivery"></div>
   </div>
   <p class="dim">الحالة: <b id="oStatus">—</b></p>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0">
     <button class="btn btn-sm" onclick="setStatus('مقبول')">مقبول</button>
-    <button class="btn btn-sm" onclick="setStatus('جاري التنفيذ')">جاري التنفيذ</button>
+    <button class="btn btn-sm" onclick="setStatus('جاري التنفيذ')">جاري</button>
     <button class="btn btn-sm" onclick="setStatus('جاهز / مكتمل')">جاهز</button>
   </div>
-  <button class="btn" onclick="openChat()">محادثة مع العميل</button>
+  <button class="btn" onclick="openChat()">محادثة</button>
   <button class="btn btn-ghost" style="margin-top:8px" onclick="setStatus('تم تأكيد المطابقة')">تأكيد مطابقة القطعة</button>
 </div>
+
 <div class="screen" id="s-chat">
   <div class="backbtn" onclick="show('s-order')">‹</div>
   <h1>محادثة</h1>
@@ -93,99 +98,202 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const API = '';
-let partner = null, tab = 'new', orders = [], current = null;
+const API='';
+let partner=null, orders=[], myServices=[], myParts=[], current=null, tab='orders', orderFilter='new';
 
-async function api(path, opts) {
-  const r = await fetch(API + path, {
-    headers: {'Content-Type': 'application/json'},
-    ...opts,
-    body: opts && opts.body ? JSON.stringify(opts.body) : undefined
-  });
-  const data = await r.json().catch(()=>({}));
-  if (!r.ok) throw new Error(data.error || r.statusText);
-  return data;
+async function api(path, opts={}) {
+  const r = await fetch(API+path, {headers:{'Content-Type':'application/json'}, ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined});
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
 }
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0)}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
 
 async function login(){
-  try {
-    const phone = document.getElementById('phone').value.trim();
-    const res = await api('/api/partners/login', {method:'POST', body:{phone}});
-    partner = res.partner;
-    localStorage.setItem('turbas_partner', JSON.stringify(partner));
-    document.getElementById('wsName').textContent = partner.name;
-    await loadOrders();
-    show('s-home');
-  } catch(e){ toast(e.message || 'فشل الدخول'); }
+  try{
+    const res=await api('/api/partners/login',{method:'POST',body:{phone:document.getElementById('phone').value.trim()}});
+    partner=res.partner;
+    localStorage.setItem('turbas_partner',JSON.stringify(partner));
+    document.getElementById('wsName').textContent=partner.name;
+    document.getElementById('wsArea').textContent=partner.area||'صناعية العاصمة';
+    await loadHome(); show('s-home');
+  }catch(e){toast(e.message)}
 }
-function logout(){ partner=null; localStorage.removeItem('turbas_partner'); show('s-login'); }
+function logout(){partner=null;localStorage.removeItem('turbas_partner');show('s-login')}
 
-function setTab(el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active'); tab = el.dataset.t; render();
+function mainTab(el){
+  document.querySelectorAll('#s-home .tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active'); tab=el.dataset.t; renderMain();
 }
-async function loadOrders(){
-  orders = await api('/api/orders?partner_id=' + partner.id);
-  render();
+
+async function loadHome(){
+  orders=await api('/api/orders?partner_id='+partner.id);
+  myServices=await api('/api/services?partner_id='+partner.id);
+  myParts=await api('/api/parts?partner_id='+partner.id);
+  document.getElementById('stNew').textContent=orders.filter(o=>o.status==='new').length;
+  document.getElementById('stActive').textContent=orders.filter(o=>o.status==='active').length;
+  document.getElementById('stDone').textContent=orders.filter(o=>o.status==='done').length;
+  renderMain();
 }
-function render(){
-  const n = orders.filter(o=>o.status==='new').length;
-  const a = orders.filter(o=>o.status==='active').length;
-  const d = orders.filter(o=>o.status==='done').length;
-  document.getElementById('stNew').textContent=n;
-  document.getElementById('stActive').textContent=a;
-  document.getElementById('stDone').textContent=d;
-  const list = orders.filter(o=>o.status===tab);
-  document.getElementById('list').innerHTML = list.length ? list.map(o=>`
-    <div class="card" onclick="openOrder(${o.id})">
-      <div class="row"><b>${o.title}</b><span class="badge ${o.status==='done'?'badge-done':''}">${o.status_text}</span></div>
-      <div class="dim" style="margin-top:6px">${o.car_info||''} · #${o.id}</div>
-      <div class="row" style="margin-top:8px"><span class="amber">${o.price} ر.س</span><span class="dim">${(o.created_at||'').slice(0,16)}</span></div>
-    </div>`).join('') : '<p class="dim" style="text-align:center;padding:30px">ما فيه طلبات</p>';
+
+function renderMain(){
+  const body=document.getElementById('mainBody');
+  if(tab==='orders'){
+    body.innerHTML=`
+      <div class="tab-row">
+        <div class="tab ${orderFilter==='new'?'active':''}" onclick="orderFilter='new';renderMain()">جديدة</div>
+        <div class="tab ${orderFilter==='active'?'active':''}" onclick="orderFilter='active';renderMain()">جارية</div>
+        <div class="tab ${orderFilter==='done'?'active':''}" onclick="orderFilter='done';renderMain()">مكتملة</div>
+      </div>
+      ${orders.filter(o=>o.status===orderFilter).map(o=>`
+        <div class="card" onclick="openOrder(${o.id})">
+          <div class="row"><b>${o.title}</b><span class="badge">${o.status_text}</span></div>
+          <div class="dim" style="margin-top:6px">${o.car_info||''} · #${o.id}</div>
+          <div class="row" style="margin-top:8px"><span class="amber">${o.price} ر.س</span></div>
+        </div>`).join('')||'<p class="dim" style="text-align:center;padding:24px">ما فيه طلبات</p>'}`;
+  } else if(tab==='catalog'){
+    const isWs = partner.type==='workshop';
+    body.innerHTML=`
+      <p class="dim" style="margin-bottom:10px">${isWs?'خدماتك تظهر للعملاء فور الإضافة':'قطعك تظهر للعملاء فور الإضافة'}</p>
+      ${isWs ? myServices.map(s=>`
+        <div class="card" style="cursor:default">
+          <div class="row"><b>${s.name}</b><span class="amber">${s.price} ر.س</span></div>
+          <div class="dim" style="margin-top:6px">${s.problem||''} · ${s.labor_only?'يد عاملة فقط':'شامل قطع'}</div>
+          <div class="dim">ماركات: ${s.brands||'الكل'} · موديلات: ${s.models||'—'}</div>
+          <div class="dim">يتغير: ${s.parts_changed||'—'} · شامل: ${s.includes||'—'}</div>
+          <button class="btn btn-sm btn-danger" style="margin-top:8px" onclick="delService(${s.id})">حذف</button>
+        </div>`).join('')||'<p class="dim">ما أضفت خدمات بعد</p>'
+      : myParts.map(p=>`
+        <div class="card" style="cursor:default">
+          <div class="row"><b>${p.name}</b><span class="amber">${p.price} ر.س</span></div>
+          <div class="dim" style="margin-top:6px">${p.category} · ${p.grade||''} · ${p.part_number||''}</div>
+          <div class="dim">صناعة: ${p.origin||'—'} · ماركات: ${p.brands||'—'} · موديلات: ${p.models||'—'}</div>
+          <div class="dim">سنوات: ${p.years||'—'}</div>
+          <button class="btn btn-sm btn-danger" style="margin-top:8px" onclick="delPart(${p.id})">حذف</button>
+        </div>`).join('')||'<p class="dim">ما أضفت قطع بعد</p>'}`;
+  } else {
+    // add form
+    if(partner.type==='workshop'){
+      body.innerHTML=`
+        <h1 style="margin-bottom:12px">إضافة خدمة</h1>
+        <label>اسم الخدمة</label><input class="field" id="fName" placeholder="مثال: تغيير زيت">
+        <label>التصنيف</label>
+        <select class="field" id="fProblem">
+          <option>صيانة دورية</option><option>مكينة</option><option>قير</option>
+          <option>رديتر وتبريد</option><option>فرامل</option><option>كهرباء</option>
+          <option>تكييف</option><option>تعليق وكفرات</option>
+        </select>
+        <label>السعر (ر.س)</label><input class="field" id="fPrice" type="number" placeholder="220">
+        <label>المدة</label><input class="field" id="fDur" placeholder="45 دقيقة">
+        <label>الضمان (أيام)</label><input class="field" id="fWar" type="number" value="30">
+        <label>الماركات (افصل بفاصلة)</label><input class="field" id="fBrands" placeholder="تويوتا,لكزس">
+        <label>الموديلات</label><input class="field" id="fModels" placeholder="كامري,كورولا">
+        <label>القطع اللي تتغير</label><input class="field" id="fChanged" placeholder="فلتر زيت">
+        <label>وش شامل الخدمة</label><input class="field" id="fInc" placeholder="فك وتركيب · فحص">
+        <label>شرح مختصر</label><input class="field" id="fDesc" placeholder="يد عاملة فقط أو شامل">
+        <div class="check"><input type="checkbox" id="fLabor" checked> <span>شغل يد فقط (بدون سعر القطعة)</span></div>
+        <button class="btn" onclick="addService()">حفظ — يظهر للعملاء فوراً</button>`;
+    } else {
+      body.innerHTML=`
+        <h1 style="margin-bottom:12px">إضافة قطعة</h1>
+        <label>اسم القطعة</label><input class="field" id="fName" placeholder="فلتر زيت تويوتا">
+        <label>النوع</label>
+        <select class="field" id="fCat">
+          <option>فلاتر</option><option>زيوت</option><option>بطاريات</option><option>كفرات</option><option>أخرى</option>
+        </select>
+        <label>رقم القطعة</label><input class="field" id="fNum" placeholder="90915-YZZD2">
+        <label>السعر (ر.س)</label><input class="field" id="fPrice" type="number" placeholder="45">
+        <label>الصناعة / المنشأ</label><input class="field" id="fOrigin" placeholder="اليابان / ألمانيا / الصين">
+        <label>الفئة</label>
+        <select class="field" id="fGrade">
+          <option>أصلي</option><option>درجة أولى</option><option>تجاري</option>
+        </select>
+        <label>الماركات المناسبة</label><input class="field" id="fBrands" placeholder="تويوتا">
+        <label>الموديلات</label><input class="field" id="fModels" placeholder="كامري,كورولا">
+        <label>السنوات</label><input class="field" id="fYears" placeholder="2018-2024">
+        <label>الضمان</label><input class="field" id="fWar" placeholder="ضمان المحل / 18 شهر">
+        <label>ملاحظات</label><input class="field" id="fMeta" placeholder="4 لتر · OEM">
+        <button class="btn" onclick="addPart()">حفظ — يظهر للعملاء فوراً</button>`;
+    }
+  }
 }
+
+async function addService(){
+  try{
+    await api('/api/services',{method:'POST',body:{
+      partner_id:partner.id,
+      name:document.getElementById('fName').value.trim(),
+      problem:document.getElementById('fProblem').value,
+      price:+document.getElementById('fPrice').value||0,
+      duration:document.getElementById('fDur').value,
+      warranty_days:+document.getElementById('fWar').value||30,
+      brands:document.getElementById('fBrands').value,
+      models:document.getElementById('fModels').value,
+      parts_changed:document.getElementById('fChanged').value,
+      includes:document.getElementById('fInc').value,
+      description:document.getElementById('fDesc').value,
+      labor_only:document.getElementById('fLabor').checked
+    }});
+    toast('تمت الإضافة — ظاهرة للعملاء الآن');
+    tab='catalog'; await loadHome();
+    document.querySelectorAll('#s-home .tab').forEach(t=>t.classList.toggle('active',t.dataset.t==='catalog'));
+  }catch(e){toast(e.message)}
+}
+async function addPart(){
+  try{
+    await api('/api/parts',{method:'POST',body:{
+      partner_id:partner.id,
+      name:document.getElementById('fName').value.trim(),
+      category:document.getElementById('fCat').value,
+      part_number:document.getElementById('fNum').value,
+      price:+document.getElementById('fPrice').value||0,
+      origin:document.getElementById('fOrigin').value,
+      grade:document.getElementById('fGrade').value,
+      brands:document.getElementById('fBrands').value,
+      models:document.getElementById('fModels').value,
+      years:document.getElementById('fYears').value,
+      warranty:document.getElementById('fWar').value,
+      meta:document.getElementById('fMeta').value
+    }});
+    toast('تمت الإضافة — ظاهرة للعملاء الآن');
+    tab='catalog'; await loadHome();
+    document.querySelectorAll('#s-home .tab').forEach(t=>t.classList.toggle('active',t.dataset.t==='catalog'));
+  }catch(e){toast(e.message)}
+}
+async function delService(id){await fetch(API+'/api/services/'+id,{method:'DELETE'});toast('حُذفت');loadHome()}
+async function delPart(id){await fetch(API+'/api/parts/'+id,{method:'DELETE'});toast('حُذفت');loadHome()}
+
 async function openOrder(id){
-  current = await api('/api/orders/' + id);
-  document.getElementById('oTitle').textContent = 'طلب #' + current.id;
-  document.getElementById('oMeta').textContent = (current.created_at||'').slice(0,16);
-  document.getElementById('oService').textContent = current.title;
-  document.getElementById('oPrice').textContent = current.price + ' ر.س';
-  document.getElementById('oCar').textContent = 'السيارة: ' + (current.car_info||'—');
-  document.getElementById('oComm').textContent = 'صافي بعد عمولة 15%: ' + (current.price * 0.85).toFixed(0) + ' ر.س';
-  document.getElementById('oDelivery').textContent = current.delivery_fee ? ('توصيل: ' + current.delivery_fee + ' ر.س · ' + (current.zone||'')) : 'بدون توصيل';
-  document.getElementById('oStatus').textContent = current.status_text;
+  current=await api('/api/orders/'+id);
+  document.getElementById('oTitle').textContent='طلب #'+current.id;
+  document.getElementById('oMeta').textContent=(current.created_at||'').slice(0,16);
+  document.getElementById('oService').textContent=current.title;
+  document.getElementById('oPrice').textContent=current.price+' ر.س';
+  document.getElementById('oCar').textContent='السيارة: '+(current.car_info||'—');
+  document.getElementById('oComm').textContent='صافي بعد 15%: '+(current.price*0.85).toFixed(0)+' ر.س';
+  document.getElementById('oStatus').textContent=current.status_text;
   show('s-order');
 }
 async function setStatus(st){
-  if (!current) return;
-  await api('/api/orders/' + current.id + '/status', {method:'POST', body:{status_text: st}});
-  current.status_text = st;
-  document.getElementById('oStatus').textContent = st;
-  toast('تم التحديث: ' + st);
-  await loadOrders();
+  await api('/api/orders/'+current.id+'/status',{method:'POST',body:{status_text:st}});
+  current.status_text=st; document.getElementById('oStatus').textContent=st;
+  toast('تم التحديث: '+st); loadHome();
 }
 async function openChat(){
-  const msgs = await api('/api/orders/' + current.id + '/messages');
-  const box = document.getElementById('chatBox');
-  box.innerHTML = msgs.length ? msgs.slice().reverse().map(m =>
-    `<div class="msg ${m.sender==='workshop'||m.sender==='partner'?'me':'them'}">${m.body}</div>`
-  ).join('') : '<p class="dim">ابدأ المحادثة</p>';
+  const msgs=await api('/api/orders/'+current.id+'/messages');
+  document.getElementById('chatBox').innerHTML=msgs.length?msgs.slice().reverse().map(m=>
+    `<div class="msg ${m.sender==='workshop'?'me':'them'}">${m.body}</div>`).join(''):'<p class="dim">ابدأ المحادثة</p>';
   show('s-chat');
 }
 async function sendMsg(){
-  const i = document.getElementById('chatInput');
-  const v = i.value.trim(); if (!v) return;
-  await api('/api/orders/' + current.id + '/messages', {method:'POST', body:{sender:'workshop', body:v}});
-  i.value = '';
-  openChat();
+  const i=document.getElementById('chatInput'); const v=i.value.trim(); if(!v)return;
+  await api('/api/orders/'+current.id+'/messages',{method:'POST',body:{sender:'workshop',body:v}});
+  i.value=''; openChat();
 }
 
-// استعادة الجلسة
-try {
-  const s = localStorage.getItem('turbas_partner');
-  if (s) { partner = JSON.parse(s); document.getElementById('wsName').textContent = partner.name; loadOrders().then(()=>show('s-home')); }
-} catch(e){}
+try{const s=localStorage.getItem('turbas_partner');if(s){partner=JSON.parse(s);document.getElementById('wsName').textContent=partner.name;loadHome().then(()=>show('s-home'))}}catch(e){}
 </script>
 </body>
 </html>

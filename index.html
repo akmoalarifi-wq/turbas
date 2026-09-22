@@ -52,6 +52,17 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 .tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer}
 .tab.active{background:var(--amber);color:#20221F;border-color:var(--amber);font-weight:700}
 .account-item{display:flex;justify-content:space-between;align-items:center;padding:16px 14px;background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;cursor:pointer}
+
+.promo-banner{border-radius:16px;padding:18px;margin-bottom:14px;background:linear-gradient(135deg,#E8A33D,#F5C26B);cursor:pointer}
+.promo-title{font-weight:800;font-size:15px;color:#20221F}
+.promo-sub{font-size:12px;color:#20221F;opacity:.85;margin-top:4px}
+.search-box{display:flex;gap:8px;margin-bottom:14px}
+.search-box .field{margin:0;flex:1}
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.how-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center}
+.how-card .h-num{width:26px;height:26px;border-radius:50%;background:var(--amber);color:#20221F;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:12px;margin-bottom:6px}
+.how-card b{display:block;font-size:13px;margin-bottom:4px}
+.section-title{font-size:15px;font-weight:700;margin:16px 0 10px}
 </style>
 </head>
 <body>
@@ -63,20 +74,35 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 
 <div class="screen" id="s-home">
   <div class="row" style="margin-bottom:12px">
-    <div><div class="dim">مرحباً</div><h1 style="margin:0;font-size:20px">ترباس</h1></div>
+    <div><div class="dim">مرحباً بك في</div><h1 style="margin:0;font-size:20px">ترباس</h1></div>
     <span class="dim" id="ptsLabel">— نقطة</span>
   </div>
   <div class="card" style="background:linear-gradient(135deg,var(--card),var(--bg))" onclick="loadPoints()">
-    <div class="dim">رصيد نقاطك</div>
+    <div class="dim">رصيد نقاطك · كل 10 ر.س = نقطة</div>
     <div class="amber" style="font-size:22px" id="ptsBig">—</div>
   </div>
+  <div class="promo-banner" onclick="openParts('زيوت')">
+    <div class="promo-title">خصم 20% على تغيير الزيت</div>
+    <div class="promo-sub">لفترة محدودة · اضغط للتفاصيل</div>
+  </div>
+  <div class="search-box">
+    <input class="field" id="homeSearch" placeholder="ابحث عن خدمة أو قطعة...">
+    <button class="btn btn-sm" onclick="doSearch()">بحث</button>
+  </div>
   <div class="cat-grid">
-    <div class="cat-tile" onclick="openWorkshops()"><span class="cat-icon">🛠️</span><b>ورش</b></div>
-    <div class="cat-tile" onclick="openParts('الكل')"><span class="cat-icon">⚙️</span><b>قطع غيار</b></div>
+    <div class="cat-tile" onclick="openWorkshops()"><span class="cat-icon">🛠️</span><b>ورش</b><span class="dim">صيانة</span></div>
+    <div class="cat-tile" onclick="openParts('الكل')"><span class="cat-icon">⚙️</span><b>قطع غيار</b><span class="dim">فلاتر</span></div>
     <div class="cat-tile" onclick="openParts('زيوت')"><span class="cat-icon">🛢️</span><b>زيوت</b></div>
     <div class="cat-tile" onclick="openParts('بطاريات')"><span class="cat-icon">🔋</span><b>بطاريات</b></div>
     <div class="cat-tile" onclick="openParts('كفرات')"><span class="cat-icon">🛞</span><b>كفرات</b></div>
     <div class="cat-tile" onclick="nav('s-orders')"><span class="cat-icon">📋</span><b>طلباتي</b></div>
+  </div>
+  <p class="section-title">كيف يشتغل ترباس؟</p>
+  <div class="how-grid">
+    <div class="how-card"><div class="h-num">1</div><b>اختر خدمتك</b><div class="dim">ورشة أو قطعة</div></div>
+    <div class="how-card"><div class="h-num">2</div><b>احجز أو اطلب</b><div class="dim">من التطبيق مباشرة</div></div>
+    <div class="how-card"><div class="h-num">3</div><b>تابع الطلب</b><div class="dim">حالات واضحة</div></div>
+    <div class="how-card"><div class="h-num">4</div><b>اكسب نقاط</b><div class="dim">كل 10 ر.س = نقطة</div></div>
   </div>
 </div>
 
@@ -228,16 +254,27 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.cla
 
 async function doLogin(){
   try{
-    const phone=document.getElementById('phone').value.trim();
+    const phone=(localStorage.getItem('turbas_phone')||'0512345678');
     const res=await api('/api/auth/login',{method:'POST',body:{phone}});
     user=res.user;
     localStorage.setItem('turbas_user',JSON.stringify(user));
+    localStorage.setItem('turbas_phone', phone);
     await refreshHome();
     show('s-home');
-  }catch(e){toast(e.message)}
+  }catch(e){toast(e.message||'تعذر الاتصال')}
 }
 function logout(){user=null;localStorage.removeItem('turbas_user');show('s-login')}
 
+function doSearch(){
+  const q=(document.getElementById('homeSearch').value||'').trim();
+  if(!q) return toast('اكتب كلمة بحث');
+  if(/زيت/.test(q)) openParts('زيوت');
+  else if(/كفر|إطار/.test(q)) openParts('كفرات');
+  else if(/بطار/.test(q)) openParts('بطاريات');
+  else if(/ورش|صيان/.test(q)) openWorkshops();
+  else openParts('الكل');
+  toast('نتائج: '+q);
+}
 async function refreshHome(){
   const pts=await api('/api/users/'+user.id+'/points');
   document.getElementById('ptsLabel').textContent=pts.total+' نقطة';
@@ -274,8 +311,9 @@ async function openWs(id){
   document.getElementById('wdServices').innerHTML=svcs.map(s=>`
     <div class="card" onclick='openSvc(${JSON.stringify(s)})'>
       <div class="row"><b>${s.name}</b><span class="amber">من ${s.price} ر.س</span></div>
-      <div class="dim" style="margin-top:4px">⏱ ${s.duration} · ${s.problem}</div>
-      <div style="margin-top:8px"><span class="badge">🛡 ضمان ${s.warranty_days} يوم</span></div>
+      <div class="dim" style="margin-top:4px">⏱ ${s.duration||''} · ${s.problem||''}</div>
+      <div class="dim">${s.labor_only?'يد عاملة فقط':''} ${(s.brands||'')?'· '+s.brands:''} ${(s.models||'')?'· '+s.models:''}</div>
+      <div style="margin-top:8px"><span class="badge">🛡 ضمان ${s.warranty_days||30} يوم</span></div>
     </div>`).join('')||'<p class="dim">ما فيه خدمات</p>';
   show('s-ws-d');
 }
@@ -285,7 +323,10 @@ function openSvc(s){
   document.getElementById('svMeta').textContent=`⏱ ${s.duration} · ${s.problem}`;
   document.getElementById('svPrice').textContent='من '+s.price+' ر.س';
   document.getElementById('svWar').textContent='🛡 ضمان الورشة '+s.warranty_days+' يوم';
-  document.getElementById('svDesc').textContent=s.description||'';
+  document.getElementById('svDesc').textContent=(s.description||'')+
+    (s.parts_changed?('\nيتغير: '+s.parts_changed):'')+
+    (s.includes?('\nشامل: '+s.includes):'')+
+    (s.labor_only?'\n(شغل يد فقط)':'');
   show('s-svc');
 }
 async function bookService(){
@@ -307,8 +348,11 @@ function openParts(cat){
   document.getElementById('pList').innerHTML=list.map(p=>`
     <div class="card" onclick='openPart(${JSON.stringify(p)})'>
       <div class="row"><b>${p.name}</b><span class="amber">${p.price} ر.س</span></div>
-      <div class="dim" style="margin-top:4px">${p.partner_name} · ${p.meta||''}</div>
-      <div style="margin-top:6px"><span class="badge">🛡 ${p.warranty||'ضمان المحل'}</span></div>
+      <div class="dim" style="margin-top:4px">${p.partner_name||''} · ${p.meta||''}</div>
+      <div class="dim">${p.grade?('فئة: '+p.grade):''} ${p.part_number?('· رقم: '+p.part_number):''} ${p.origin?('· '+p.origin):''}</div>
+      <div class="dim">${(p.brands||p.models)?('يناسب: '+(p.brands||'')+' '+(p.models||'')+' '+(p.years||'')):' ضمان مطابقة عبر VIN'}</div>
+      <div style="margin-top:6px"><span class="badge">🛡 ${p.warranty||'ضمان المحل'}</span>
+      ${p.grade==='أصلي'?'<span class="badge" style="margin-right:6px">أصلي OEM</span>':''}</div>
     </div>`).join('')||'<p class="dim">ما فيه قطع</p>';
   show('s-parts');
 }
