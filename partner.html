@@ -6,7 +6,7 @@
 <title>ترباس شركاء</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#1A1D21;--card:#252A30;--border:#353B42;--amber:#E8A33D;--good:#6FBF8B;--text:#F2F0EA;--dim:#9AA0A6;--danger:#e57373}
+:root{--bg:#1A1D21;--card:#252A30;--border:#353B42;--amber:#E8A33D;--good:#6FBF8B;--text:#F2F0EA;--dim:#9AA0A6}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Cairo,sans-serif;display:flex;justify-content:center}
 #app{width:100%;max-width:480px;min-height:100vh}
 .screen{display:none;flex-direction:column;min-height:100vh;padding:18px 16px 40px}
@@ -19,7 +19,7 @@ h1{font-size:18px;margin:0 0 4px}.dim{color:var(--dim);font-size:12px}.amber{col
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .tabs{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}
-.tab{flex:1;text-align:center;padding:10px 6px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:12px;cursor:pointer;min-width:70px}
+.tab{flex:1;text-align:center;padding:10px 6px;border-radius:10px;background:var(--card);border:1px solid var(--border);font-size:12px;cursor:pointer;min-width:64px}
 .tab.on{background:var(--amber);color:#1a1a1a;border-color:var(--amber);font-weight:700}
 .stat{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
 .stat b{display:block;font-size:18px;color:var(--amber)}.stat span{font-size:11px;color:var(--dim)}
@@ -38,15 +38,19 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
 <div id="app">
 <div class="screen active" id="s-login">
   <h1 style="font-size:22px;margin-top:20px">ترباس <span class="amber">شركاء</span></h1>
-  <p class="dim" style="margin:8px 0 20px">لوحة الورشة والمحل · صناعية العاصمة</p>
+  <p class="dim" style="margin:8px 0 20px">لوحة مقدم الخدمة · صناعية العاصمة</p>
   <input class="field" id="phone" value="0500000001" placeholder="الجوال">
   <button class="btn" onclick="login()">دخول</button>
-  <p class="dim" style="margin-top:14px;text-align:center">ورشة: 0500000001 · محل: 0500000006</p>
+  <p class="dim" style="margin-top:14px">WR ورشة 0500000001 · PR قطع 0500000006 · BT 0500000008 · OI 0500000009 · TY 0500000010</p>
 </div>
 
 <div class="screen" id="s-home">
   <div class="row">
-    <div><div class="dim">مرحباً</div><h1 id="pName">—</h1><div class="dim" id="pArea"></div></div>
+    <div>
+      <div class="dim">مرحباً · <span id="pCode"></span></div>
+      <h1 id="pName">—</h1>
+      <div class="dim" id="pType"></div>
+    </div>
     <span class="dim" style="cursor:pointer" onclick="logout()">خروج</span>
   </div>
   <div class="row" style="gap:8px;margin:12px 0" id="statsRow"></div>
@@ -58,9 +62,10 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
   <div class="tabs">
     <div class="tab on" data-t="orders" onclick="tab(this)">الطلبات</div>
     <div class="tab" data-t="catalog" onclick="tab(this)">خدماتي</div>
+    <div class="tab" data-t="chats" onclick="tab(this)">محادثات</div>
     <div class="tab" data-t="add" onclick="tab(this)">إضافة</div>
   </div>
-  <div class="tabs" id="ordFilter" style="display:none">
+  <div class="tabs" id="ordFilter">
     <div class="tab on" data-f="paid" onclick="ofilt(this)">جديدة</div>
     <div class="tab" data-f="confirmed" onclick="ofilt(this)">مؤكدة</div>
     <div class="tab" data-f="in_progress" onclick="ofilt(this)">جارية</div>
@@ -107,6 +112,7 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
 <div class="toast" id="toast"></div>
 <script>
 const API='';
+const TYPE_AR={workshop:'ورشة',parts:'قطع غيار',batteries:'بطاريات',oils:'زيوت',tires:'كفرات'};
 let partner=null, orders=[], offers=[], products=[], tabName='orders', oFilter='paid', cur=null;
 async function api(path,opts={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.statusText);return d}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
@@ -117,12 +123,14 @@ async function login(){
     const res=await api('/api/partners/login',{method:'POST',body:{phone:document.getElementById('phone').value.trim()}});
     partner=res.partner; localStorage.setItem('turbas_partner',JSON.stringify(partner));
     document.getElementById('pName').textContent=partner.name;
-    document.getElementById('pArea').textContent=partner.area||'صناعية العاصمة';
+    document.getElementById('pCode').textContent=partner.code||'';
+    document.getElementById('pType').textContent=(TYPE_AR[partner.type]||partner.type)+' · '+(partner.area||'');
     await load(); show('s-home');
   }catch(e){toast(e.message)}
 }
 function logout(){partner=null;localStorage.removeItem('turbas_partner');show('s-login')}
-function tab(el){document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');tabName=el.dataset.t;render()}
+function tab(el){document.querySelectorAll('.tabs .tab').forEach(t=>{if(!t.dataset.f)t.classList.remove('on')});el.classList.add('on');tabName=el.dataset.t;
+  document.getElementById('ordFilter').style.display=tabName==='orders'?'flex':'none'; render()}
 function ofilt(el){document.querySelectorAll('#ordFilter .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');oFilter=el.dataset.f;render()}
 
 async function load(){
@@ -141,7 +149,6 @@ async function load(){
 }
 function render(){
   const body=document.getElementById('body');
-  document.getElementById('ordFilter').style.display=tabName==='orders'?'flex':'none';
   if(tabName==='orders'){
     const list=orders.filter(o=>o.status===oFilter||(oFilter==='paid'&&(o.status==='paid'||o.status==='new')));
     body.innerHTML=list.length?list.map(o=>`
@@ -150,6 +157,14 @@ function render(){
         <div class="dim" style="margin-top:6px">${o.car_info||''} · #${o.id}</div>
         <div class="row" style="margin-top:8px"><span class="amber">${o.price} ر.س</span></div>
       </div>`).join(''):'<p class="dim" style="text-align:center;padding:24px">ما فيه طلبات</p>';
+  } else if(tabName==='chats'){
+    api('/api/conversations?partner_id='+partner.id).then(list=>{
+      body.innerHTML=list.length?list.map(c=>`
+        <div class="card" onclick="cur={id:${c.order_id}};openChat()">
+          <div class="row"><b>${c.title}</b><span class="dim">#${c.order_id}</span></div>
+          <div class="dim" style="margin-top:6px">${c.last_msg||c.status_text||''}</div>
+        </div>`).join(''):'<p class="dim" style="text-align:center">لا محادثات</p>';
+    });
   } else if(tabName==='catalog'){
     if(partner.type==='workshop'){
       body.innerHTML=offers.map(o=>`
@@ -157,41 +172,40 @@ function render(){
           <div class="row"><b>${o.service_name}</b><span class="amber">${o.price} ر.س</span></div>
           <div class="dim" style="margin-top:6px">${o.duration||''} · ضمان ${o.warranty_days} يوم</div>
           <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="delOffer(${o.id})">حذف</button>
-        </div>`).join('')||'<p class="dim">أضف عروض خدمات لتظهر في المقارنة</p>';
+        </div>`).join('')||'<p class="dim">أضف عروض لتظهر في مقارنة العملاء</p>';
     } else {
       body.innerHTML=products.map(p=>`
         <div class="card" style="cursor:default">
           <div class="row"><b>${p.name}</b><span class="amber">${p.price} ر.س</span></div>
-          <div class="dim">${p.category} · ${p.grade||''}</div>
+          <div class="dim">${p.kind} · ${p.brand||''} · ${p.grade||''}</div>
           <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="delProd(${p.id})">حذف</button>
         </div>`).join('')||'<p class="dim">أضف منتجات</p>';
     }
   } else {
     if(partner.type==='workshop'){
       body.innerHTML=`
-        <p class="dim" style="margin-bottom:10px">اختر خدمة من كتالوج ترباس وضع سعرك — تظهر للعملاء بدون اسمك حتى الدفع</p>
-        <label>معرّف الخدمة (service_def_id)</label>
-        <input class="field" id="fSid" placeholder="1 = فحمات أمامية، 2 خلفية، 5 فحص فرامل...">
-        <label>السعر</label><input class="field" id="fPrice" type="number" placeholder="290">
+        <p class="dim">ضع سعرك على خدمة من كتالوج ترباس — تظهر للعملاء بدون اسمك حتى الدفع</p>
+        <label>معرّف الخدمة service_def_id</label>
+        <input class="field" id="fSid" placeholder="1 فحمات أمامية · 2 خلفية · 5 فحص فرامل">
+        <label>السعر</label><input class="field" id="fPrice" type="number">
         <label>المدة</label><input class="field" id="fDur" placeholder="45 دقيقة">
-        <label>الضمان (أيام)</label><input class="field" id="fWar" type="number" value="90">
-        <label>يشمل</label><input class="field" id="fInc" placeholder="فحمات · فك وتركيب">
-        <label>لا يشمل</label><input class="field" id="fExc" placeholder="هوبات">
-        <button class="btn" onclick="addOffer()">نشر العرض</button>
-        <p class="dim" style="margin-top:10px">1 فحمات أمامية · 2 خلفية · 3 خرط هوبات · 5 فحص فرامل · 7 فحص مكينة · 11 دينمو · 15 رديتر · 17 فريون</p>`;
+        <label>الضمان أيام</label><input class="field" id="fWar" type="number" value="90">
+        <label>يشمل</label><input class="field" id="fInc">
+        <label>لا يشمل</label><input class="field" id="fExc">
+        <button class="btn" onclick="addOffer()">نشر العرض</button>`;
     } else {
       body.innerHTML=`
-        <label>اسم المنتج</label><input class="field" id="fName" placeholder="فلتر زيت">
-        <label>التصنيف</label><select class="field" id="fCat"><option>فلاتر</option><option>زيوت</option><option>بطاريات</option><option>كفرات</option></select>
+        <label>اسم المنتج</label><input class="field" id="fName">
+        <label>النوع</label><select class="field" id="fKind"><option value="${partner.type}">${partner.type}</option><option value="parts">parts</option><option value="oils">oils</option><option value="batteries">batteries</option><option value="tires">tires</option></select>
         <label>السعر</label><input class="field" id="fPrice" type="number">
         <label>الماركة</label><input class="field" id="fBrand">
         <label>الفئة</label><select class="field" id="fGrade"><option>أصلي</option><option>درجة أولى</option><option>تجاري</option></select>
         <label>رقم القطعة</label><input class="field" id="fNum">
-        <label>ماركات السيارات</label><input class="field" id="fBrands" placeholder="تويوتا">
-        <label>الموديلات</label><input class="field" id="fModels" placeholder="كامري">
+        <label>ماركات السيارات</label><input class="field" id="fBrands" placeholder="تويوتا,جمس">
+        <label>الموديلات</label><input class="field" id="fModels">
         <label>السنوات</label><input class="field" id="fYears" placeholder="2018-2024">
         <label>الضمان</label><input class="field" id="fWar" value="ضمان المحل">
-        <button class="btn" onclick="addProd()">حفظ المنتج</button>`;
+        <button class="btn" onclick="addProd()">حفظ</button>`;
     }
   }
 }
@@ -202,12 +216,12 @@ async function addOffer(){
     warranty_days:+document.getElementById('fWar').value||30,
     includes:document.getElementById('fInc').value, excludes:document.getElementById('fExc').value
   }});
-  toast('تم نشر العرض للعملاء'); tabName='catalog'; await load();
+  toast('تم النشر'); tabName='catalog'; await load();
 }
 async function addProd(){
   await api('/api/products',{method:'POST',body:{
     partner_id:partner.id, name:document.getElementById('fName').value,
-    category:document.getElementById('fCat').value, price:+document.getElementById('fPrice').value,
+    kind:document.getElementById('fKind').value, price:+document.getElementById('fPrice').value,
     brand:document.getElementById('fBrand').value, grade:document.getElementById('fGrade').value,
     part_number:document.getElementById('fNum').value, brands:document.getElementById('fBrands').value,
     models:document.getElementById('fModels').value, years:document.getElementById('fYears').value,
@@ -217,7 +231,6 @@ async function addProd(){
 }
 async function delOffer(id){await fetch(API+'/api/offers/'+id,{method:'DELETE'});load()}
 async function delProd(id){await fetch(API+'/api/products/'+id,{method:'DELETE'});load()}
-
 async function openOrder(id){
   cur=await api('/api/orders/'+id);
   document.getElementById('oTitle').textContent='طلب #'+cur.id;
@@ -230,33 +243,27 @@ async function openOrder(id){
   document.getElementById('addonBox').style.display='none';
   show('s-order');
 }
-async function setSt(st){
-  await api('/api/orders/'+cur.id+'/status',{method:'POST',body:{status:st}});
-  toast('تم التحديث'); load(); openOrder(cur.id);
-}
+async function setSt(st){await api('/api/orders/'+cur.id+'/status',{method:'POST',body:{status:st}});toast('تم');load();openOrder(cur.id)}
 function showAddon(){document.getElementById('addonBox').style.display='block'}
 async function sendAddon(){
   await api('/api/orders/'+cur.id+'/addons',{method:'POST',body:{
-    title:document.getElementById('adTitle').value,
-    price:+document.getElementById('adPrice').value,
-    reason:document.getElementById('adReason').value
-  }});
-  toast('أُرسل للعميل للموافقة والدفع');
-  document.getElementById('addonBox').style.display='none';
+    title:document.getElementById('adTitle').value, price:+document.getElementById('adPrice').value,
+    reason:document.getElementById('adReason').value}});
+  toast('أُرسل للعميل'); document.getElementById('addonBox').style.display='none';
 }
 async function openChat(){
   const msgs=await api('/api/orders/'+cur.id+'/messages');
   document.getElementById('chatBox').innerHTML=msgs.length?msgs.slice().reverse().map(m=>
-    `<div class="msg ${m.sender==='workshop'?'me':'them'}">${m.body}</div>`).join(''):'<p class="dim">لا رسائل</p>';
+    `<div class="msg ${m.sender==='workshop'||m.sender==='partner'?'me':'them'}">${m.body}</div>`).join(''):'<p class="dim">لا رسائل</p>';
   show('s-chat');
 }
 async function sendMsg(){
   const i=document.getElementById('chatIn'); const v=i.value.trim(); if(!v)return;
-  await api('/api/orders/'+cur.id+'/messages',{method:'POST',body:{sender:'workshop',body:v}});
+  await api('/api/orders/'+cur.id+'/messages',{method:'POST',body:{sender:'workshop',body:v,msg_type:'text'}});
   i.value=''; openChat();
 }
 setInterval(()=>{if(partner&&document.getElementById('s-home').classList.contains('active')&&tabName==='orders')load()},10000);
-try{const s=localStorage.getItem('turbas_partner');if(s){partner=JSON.parse(s);document.getElementById('pName').textContent=partner.name;load().then(()=>show('s-home'))}}catch(e){}
+try{const s=localStorage.getItem('turbas_partner');if(s){partner=JSON.parse(s);document.getElementById('pName').textContent=partner.name;document.getElementById('pCode').textContent=partner.code||'';document.getElementById('pType').textContent=TYPE_AR[partner.type]||partner.type;load().then(()=>show('s-home'))}}catch(e){}
 </script>
 </body>
 </html>

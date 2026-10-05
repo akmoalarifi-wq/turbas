@@ -3,46 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1E2124">
+<meta name="theme-color" content="#1A1D21">
 <title>ترباس</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#1A1D21;--card:#252A30;--border:#353B42;--amber:#E8A33D;--teal:#4FA3A8;--good:#6FBF8B;--text:#F2F0EA;--dim:#9AA0A6;--danger:#e57373}
+:root{--bg:#1A1D21;--card:#252A30;--border:#353B42;--amber:#E8A33D;--teal:#4FA3A8;--good:#6FBF8B;--text:#F2F0EA;--dim:#9AA0A6}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--text);font-family:'Cairo',sans-serif;display:flex;justify-content:center}
 #app{width:100%;max-width:430px;min-height:100vh;position:relative}
-.screen{display:none;flex-direction:column;min-height:100vh;padding:16px 16px 88px}
+.screen{display:none;flex-direction:column;min-height:100vh;padding:16px 16px 90px}
 .screen.active{display:flex}
 h1{font-size:18px;margin:0 0 6px;font-weight:800}
 .dim{color:var(--dim);font-size:12px}.amber{color:var(--amber);font-weight:800}
-.back{width:36px;height:36px;border-radius:10px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;margin-bottom:12px}
+.back{width:36px;height:36px;border-radius:10px;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;margin-bottom:12px;flex-shrink:0}
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px}
-.card.tap{cursor:pointer}.card.tap:active{transform:scale(.98)}
+.card.tap{cursor:pointer}.card.tap:active{opacity:.9}
 .btn{background:var(--amber);color:#1a1a1a;border:none;padding:14px;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;width:100%;font-family:Cairo}
-.btn:active{transform:scale(.98)}.btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-ghost{background:var(--card);color:var(--text);border:1px solid var(--border)}
 .btn-sm{padding:10px 14px;font-size:13px;width:auto}
 .field{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:13px;color:var(--text);font-family:Cairo;font-size:15px;margin-bottom:10px}
 .field:focus{outline:none;border-color:var(--amber)}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.chip-scroll{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.chip-scroll::-webkit-scrollbar{display:none}
-.chip{flex-shrink:0;padding:10px 16px;border-radius:24px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer;white-space:nowrap}
-.chip.on{background:var(--amber);color:#1a1a1a;border-color:var(--amber);font-weight:700}
-.cat-icon{font-size:18px;margin-left:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.main-cat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px 8px;text-align:center;cursor:pointer}
+.main-cat .ic{font-size:26px;display:block;margin-bottom:6px}
+.main-cat b{font-size:12px;display:block}
+.main-cat .d{font-size:10px;color:var(--dim);margin-top:2px}
 .car-bar{background:linear-gradient(135deg,var(--card),#2a3038);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:14px}
-.car-bar b{font-size:15px}
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:64px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
-.nav-i{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--dim);cursor:pointer;padding:6px}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;height:66px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.nav-i{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--dim);cursor:pointer;padding:6px}
 .nav-i.on{color:var(--amber)}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--good);color:#132;padding:12px 20px;border-radius:28px;font-weight:700;font-size:13px;z-index:99;opacity:0;transition:.25s;max-width:90%;text-align:center;pointer-events:none}
 .toast.show{opacity:1}
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(232,163,61,.15);color:var(--amber)}
-.badge-g{background:rgba(111,191,139,.15);color:var(--good)}
-.offer{position:relative}
-.offer .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:12px;color:var(--dim)}
-.offer .meta span b{color:var(--text);font-weight:600}
-.sort-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px}
-.sort-row .chip{padding:8px 12px;font-size:12px}
+.chip-scroll{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
+.chip-scroll::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:10px 14px;border-radius:24px;background:var(--card);border:1px solid var(--border);font-size:13px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--amber);color:#1a1a1a;border-color:var(--amber);font-weight:700}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:12px;color:var(--dim)}
+.meta b{color:var(--text)}
 .msg{max-width:80%;padding:10px 14px;border-radius:14px;margin-bottom:8px;font-size:13.5px}
 .msg.me{background:var(--amber);color:#1a1a1a;align-self:flex-start}
 .msg.them{background:var(--card);border:1px solid var(--border);align-self:flex-end}
@@ -53,58 +53,75 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
 .step .dot{width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--border);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700}
 .step.on .dot,.step.done .dot{background:var(--amber);border-color:var(--amber);color:#1a1a1a}
 .step .lbl{font-size:9px;color:var(--dim);text-align:center}
-.step.on .lbl{color:var(--amber)}
-.empty{text-align:center;padding:40px 16px;color:var(--dim)}
-.loading{text-align:center;padding:24px;color:var(--dim);font-size:13px}
+.empty{text-align:center;padding:36px 16px;color:var(--dim)}
+.section{font-size:14px;font-weight:700;margin:14px 0 10px}
+.seg{display:flex;gap:8px;margin-bottom:12px}
+.seg .chip{flex:1;text-align:center}
 .inc{font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
-.section{font-size:14px;font-weight:700;margin:16px 0 10px}
-.hide{display:none!important}
 </style>
 </head>
 <body>
 <div id="app">
 <!-- HOME -->
 <div class="screen active" id="s-home">
-  <div class="car-bar" id="carBar">
+  <div class="car-bar">
     <div class="dim" style="font-size:11px">سيارتك الحالية</div>
     <div class="row" style="margin-top:4px">
-      <div><b id="carLabel">جاري التحميل...</b><div class="dim" id="carSub"></div></div>
+      <div><b id="carLabel">—</b><div class="dim" id="carSub"></div></div>
       <button class="btn btn-sm btn-ghost" onclick="go('s-cars')">تغيير</button>
     </div>
   </div>
-  <input class="field" id="searchQ" placeholder="ابحث عن خدمة... مثال: فحمات فرامل" onkeydown="if(event.key==='Enter')doSearch()">
-  <div class="chip-scroll" id="catScroll"></div>
-  <div class="section">خدمات مناسبة لسيارتك</div>
-  <div id="homeSuggest"></div>
+  <input class="field" id="searchQ" placeholder="ابحث: فحمات، زيت، بطارية..." onkeydown="if(event.key==='Enter')doSearch()">
+  <div class="section">وش تحتاج؟</div>
+  <div class="grid5" id="mainCats"></div>
   <div class="section">نقاطك</div>
   <div class="card tap" onclick="go('s-points')">
-    <div class="row"><div><div class="dim">رصيد النقاط · كل 10 ر.س = نقطة</div><div class="amber" style="font-size:22px" id="ptsHome">—</div></div><span>🎁</span></div>
+    <div class="row"><div><div class="dim">كل 10 ر.س = نقطة</div><div class="amber" style="font-size:22px" id="ptsHome">—</div></div><span>🎁</span></div>
     <div class="dim" id="ptsNext" style="margin-top:6px"></div>
   </div>
 </div>
 
-<!-- CATEGORY → SUBS -->
-<div class="screen" id="s-subs">
+<!-- WORKSHOP CATS -->
+<div class="screen" id="s-wcats">
   <div class="back" onclick="go('s-home')">‹</div>
-  <h1 id="subsTitle">—</h1>
-  <p class="dim" style="margin-bottom:12px">اختر نوع الخدمة</p>
-  <div id="subsList"></div>
+  <h1>خدمات الورش</h1>
+  <p class="dim" style="margin-bottom:12px">اختر التصنيف</p>
+  <div id="wcatsList"></div>
 </div>
 
-<!-- SERVICES LIST -->
+<!-- WORKSHOP SUB -->
+<div class="screen" id="s-wsub">
+  <div class="back" onclick="go('s-wcats')">‹</div>
+  <h1 id="wsubTitle">—</h1>
+  <div id="wsubList"></div>
+</div>
+
+<!-- SERVICES -->
 <div class="screen" id="s-svcs">
-  <div class="back" onclick="go('s-subs')">‹</div>
+  <div class="back" onclick="go('s-wsub')">‹</div>
   <h1 id="svcsTitle">—</h1>
-  <p class="dim" style="margin-bottom:12px">اختر الخدمة المحددة</p>
+  <p class="dim" id="svcsCar" style="margin-bottom:10px"></p>
   <div id="svcsList"></div>
 </div>
 
-<!-- COMPARE OFFERS -->
+<!-- VEHICLE PICKER -->
+<div class="screen" id="s-vpick">
+  <div class="back" onclick="vpBack()">‹</div>
+  <h1 id="vpTitle">اختر السيارة</h1>
+  <div class="seg">
+    <div class="chip on" id="vpMine" onclick="vpMode('mine')">🚗 سياراتي</div>
+    <div class="chip" id="vpAll" onclick="vpMode('all')">🌐 الكل</div>
+  </div>
+  <input class="field" id="vpSearch" placeholder="بحث..." oninput="vpFilter()" style="display:none">
+  <div id="vpList"></div>
+</div>
+
+<!-- COMPARE -->
 <div class="screen" id="s-compare">
   <div class="back" onclick="go('s-svcs')">‹</div>
   <h1 id="cmpTitle">—</h1>
-  <p class="dim" id="cmpDesc" style="margin-bottom:10px"></p>
-  <div class="sort-row" id="sortRow">
+  <p class="dim" id="cmpCar"></p>
+  <div class="chip-scroll" id="sortRow">
     <div class="chip on" data-s="best" onclick="setSort(this)">الأفضل قيمة</div>
     <div class="chip" data-s="price_asc" onclick="setSort(this)">السعر ↑</div>
     <div class="chip" data-s="price_desc" onclick="setSort(this)">السعر ↓</div>
@@ -114,7 +131,7 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
   <div id="offersList"></div>
 </div>
 
-<!-- OFFER DETAIL + CHECKOUT -->
+<!-- CHECKOUT -->
 <div class="screen" id="s-checkout">
   <div class="back" onclick="go('s-compare')">‹</div>
   <h1 id="ckTitle">—</h1>
@@ -122,21 +139,19 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="row"><span class="dim">السعر</span><span class="amber" id="ckPrice">—</span></div>
     <div class="row" style="margin-top:8px"><span class="dim">المدة</span><span id="ckDur">—</span></div>
     <div class="row" style="margin-top:8px"><span class="dim">الضمان</span><span id="ckWar">—</span></div>
-    <div class="row" style="margin-top:8px"><span class="dim">نقاط ترباس</span><span class="amber" id="ckPts">—</span></div>
+    <div class="row" style="margin-top:8px"><span class="dim">نقاط</span><span class="amber" id="ckPts">—</span></div>
   </div>
-  <div class="section">يشمل</div>
-  <div class="card" id="ckInc"></div>
-  <div class="section">لا يشمل</div>
-  <div class="card" id="ckExc"></div>
+  <div class="section">يشمل</div><div class="card" id="ckInc"></div>
+  <div class="section">لا يشمل</div><div class="card" id="ckExc"></div>
   <div class="card" style="background:rgba(232,163,61,.08);border-color:var(--amber)">
-    <b>بعد تأكيد الطلب</b>
+    <b>بعد الدفع</b>
     <div class="dim" style="margin-top:6px">يظهر اسم الورشة والموقع ووسيلة التواصل</div>
   </div>
   <button class="btn" onclick="payOffer()">تأكيد الطلب والدفع</button>
-  <p class="dim" style="text-align:center;margin-top:8px">الدفع الإلكتروني قريباً — التأكيد يحجز الطلب الآن</p>
+  <p class="dim" style="text-align:center;margin-top:8px">الدفع الإلكتروني قريباً</p>
 </div>
 
-<!-- ORDER SUCCESS / REVEAL -->
+<!-- SUCCESS -->
 <div class="screen" id="s-success">
   <div style="text-align:center;padding:24px 0">
     <div style="font-size:48px">✅</div>
@@ -149,24 +164,24 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="dim" style="margin-top:8px" id="sucArea">—</div>
     <div class="dim" style="margin-top:4px" id="sucPhone">—</div>
   </div>
-  <div class="card">
-    <b id="sucTitle">—</b>
+  <div class="card"><b id="sucTitle">—</b>
     <div class="row" style="margin-top:8px"><span class="dim">السعر</span><span class="amber" id="sucPrice">—</span></div>
   </div>
-  <button class="btn" onclick="openOrderChat()">محادثة الطلب</button>
+  <button class="btn" onclick="openChat()">محادثة الطلب</button>
   <button class="btn btn-ghost" style="margin-top:8px" onclick="go('s-orders');loadOrders()">طلباتي</button>
 </div>
 
-<!-- PRODUCTS (oils/batteries/tires/parts) -->
-<div class="screen" id="s-products">
+<!-- PRODUCTS FLOW -->
+<div class="screen" id="s-prod">
   <div class="back" onclick="go('s-home')">‹</div>
-  <h1 id="prodTitle">منتجات</h1>
-  <p class="dim" id="prodCarHint" style="margin-bottom:10px"></p>
+  <h1 id="prodTitle">—</h1>
+  <p class="dim" id="prodCar" style="margin-bottom:10px"></p>
+  <div id="prodFilters" class="chip-scroll"></div>
   <div id="prodList"></div>
 </div>
 
 <div class="screen" id="s-prod-ck">
-  <div class="back" onclick="go('s-products')">‹</div>
+  <div class="back" onclick="go('s-prod')">‹</div>
   <h1 id="pckName">—</h1>
   <div class="card">
     <div class="row"><span class="dim">السعر</span><span class="amber" id="pckPrice">—</span></div>
@@ -174,8 +189,8 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
   </div>
   <div class="section">منطقة التوصيل</div>
   <div id="pckZones"></div>
-  <div class="section">رقم الهيكل (VIN) — للتأكد من التوافق</div>
-  <input class="field" id="pckVin" placeholder="رقم الهيكل" dir="ltr" style="text-align:left">
+  <div class="section">رقم الهيكل (VIN)</div>
+  <input class="field" id="pckVin" placeholder="للتأكد من التوافق" dir="ltr" style="text-align:left">
   <button class="btn" onclick="payProduct()">تأكيد الطلب</button>
 </div>
 
@@ -184,24 +199,19 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
   <div class="back" onclick="go('s-home')">‹</div>
   <h1>سياراتي</h1>
   <div id="carsList"></div>
-  <button class="btn" style="margin-top:12px" onclick="showAddCar()">+ إضافة سيارة</button>
-  <div id="addCarBox" class="hide" style="margin-top:14px">
-    <select class="field" id="cBrand"><option>تويوتا</option><option>لكزس</option><option>نيسان</option><option>هيونداي</option><option>كيا</option><option>شيفروليه</option><option>جمس</option><option>فورد</option></select>
-    <input class="field" id="cModel" placeholder="الموديل" value="كامري">
-    <input class="field" id="cYear" placeholder="السنة" value="2020">
-    <input class="field" id="cTrim" placeholder="الفئة" value="LE">
-    <select class="field" id="cBody"><option>سيدان</option><option>SUV</option><option>بيك أب</option><option>هاتشباك</option></select>
-    <select class="field" id="cCyl"><option>4</option><option>6</option><option>8</option></select>
-    <select class="field" id="cFuel"><option>بنزين</option><option>ديزل</option><option>هجين</option></select>
-    <input class="field" id="cColor" placeholder="اللون" value="أبيض">
-    <button class="btn" onclick="saveCar()">حفظ</button>
-  </div>
+  <button class="btn" style="margin-top:12px" onclick="startAddCar()">+ إضافة سيارة من الكتالوج</button>
+</div>
+
+<div class="screen" id="s-car-hist">
+  <div class="back" onclick="go('s-cars')">‹</div>
+  <h1 id="histTitle">سجل الصيانة</h1>
+  <div id="histList"></div>
 </div>
 
 <!-- ORDERS -->
 <div class="screen" id="s-orders">
   <h1>طلباتي</h1>
-  <div class="chip-scroll" id="ordTabs">
+  <div class="chip-scroll">
     <div class="chip on" data-t="all" onclick="ordTab(this)">الكل</div>
     <div class="chip" data-t="paid" onclick="ordTab(this)">جديدة</div>
     <div class="chip" data-t="in_progress" onclick="ordTab(this)">جارية</div>
@@ -220,14 +230,19 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="dim" style="margin-top:8px" id="odPartner"></div>
   </div>
   <div id="odAddons"></div>
-  <button class="btn" onclick="openOrderChat()">محادثة الطلب</button>
+  <button class="btn" onclick="openChat()">محادثة الطلب</button>
   <button class="btn btn-ghost" style="margin-top:8px" onclick="claimWarranty()">مطالبة ضمان</button>
 </div>
 
-<!-- CHAT -->
+<!-- CHATS LIST -->
+<div class="screen" id="s-chats">
+  <h1>المحادثات</h1>
+  <div id="chatsList"></div>
+</div>
+
 <div class="screen" id="s-chat">
-  <div class="back" onclick="go('s-order')">‹</div>
-  <h1>محادثة الطلب</h1>
+  <div class="back" onclick="go('s-chats')">‹</div>
+  <h1>محادثة</h1>
   <p class="dim" id="chatSub"></p>
   <div class="chatbox" id="chatBox" style="flex-direction:column-reverse"></div>
   <div style="display:flex;gap:8px;margin-top:10px">
@@ -246,23 +261,23 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="dim" style="margin-top:8px" id="ptsRemain"></div>
   </div>
   <div class="section">المكافآت</div>
-  <div class="card"><div class="row"><b>تغيير فحمات (خصم)</b><span class="amber">100 نقطة</span></div>
-    <div class="dim" style="margin-top:6px">عند توفر الرصيد</div></div>
+  <div class="card"><div class="row"><b>خصم خدمة</b><span class="amber">100 نقطة</span></div></div>
   <div class="section">السجل</div>
   <div id="ptsLog"></div>
 </div>
 
-<!-- ACCOUNT -->
 <div class="screen" id="s-account">
   <h1>حسابي</h1>
   <div class="card tap" onclick="go('s-cars')"><div class="row"><span>🚗 سياراتي</span><span class="dim">‹</span></div></div>
   <div class="card tap" onclick="go('s-points')"><div class="row"><span>🎁 نقاطي</span><span class="dim">‹</span></div></div>
-  <div class="card tap" onclick="go('s-orders')"><div class="row"><span>📋 طلباتي</span><span class="dim">‹</span></div></div>
+  <div class="card tap" onclick="go('s-orders');loadOrders()"><div class="row"><span>📋 طلباتي</span><span class="dim">‹</span></div></div>
 </div>
 
 <div class="nav" id="nav">
   <div class="nav-i on" data-s="s-home" onclick="go('s-home')"><span>🏠</span><span>رئيسية</span></div>
   <div class="nav-i" data-s="s-orders" onclick="go('s-orders');loadOrders()"><span>📋</span><span>طلباتي</span></div>
+  <div class="nav-i" data-s="s-chats" onclick="go('s-chats');loadChats()"><span>💬</span><span>محادثات</span></div>
+  <div class="nav-i" data-s="s-points" onclick="go('s-points');loadPts()"><span>🎁</span><span>نقاط</span></div>
   <div class="nav-i" data-s="s-account" onclick="go('s-account')"><span>👤</span><span>حسابي</span></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -270,10 +285,10 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
 <script>
 const API='';
 const STEPS=['تم الدفع','مؤكد','قيد التنفيذ','مكتمل'];
-let user=null, car=null, cats=[], zones=[];
-let curCat=null, curSub=null, curSvc=null, offers=[], sortMode='best', curOffer=null;
+let user=null, car=null, zones=[], myCars=[];
+let curMain=null, curCat=null, curSub=null, curSvc=null, offers=[], sortMode='best', curOffer=null;
 let curProd=null, zoneFee=0, zoneName='', chatOrderId=null, ordFilter='all';
-const cache={};
+let vpContext=null, vpStep='mode', vpData={}, vpListCache=[];
 
 async function api(path, opts={}){
   const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});
@@ -286,81 +301,88 @@ function go(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
-  const main=['s-home','s-orders','s-account'];
   document.querySelectorAll('.nav-i').forEach(i=>i.classList.toggle('on',i.dataset.s===id));
 }
+function carText(c){if(!c)return '—'; return `${c.brand} ${c.model} ${c.year||''}${c.trim?' · '+c.trim:''}`}
 
 async function boot(){
   try{
     const res=await api('/api/auth/login',{method:'POST',body:{phone:localStorage.getItem('turbas_phone')||'0512345678'}});
-    user=res.user; localStorage.setItem('turbas_user',JSON.stringify(user));
-    const [cars, pts, c, z]=await Promise.all([
+    user=res.user;
+    const [cars, pts, home, z]=await Promise.all([
       api('/api/users/'+user.id+'/cars'),
       api('/api/users/'+user.id+'/points'),
-      api('/api/categories'),
+      api('/api/home'),
       api('/api/delivery-zones')
     ]);
-    cats=c; zones=z;
-    car=cars.find(x=>x.is_default)||cars[0]||null;
-    renderCar(); renderCats(); renderPoints(pts); renderHomeSuggest();
+    myCars=cars; car=cars.find(x=>x.is_default)||cars[0]||null; zones=z;
+    renderCar(); renderPoints(pts);
+    document.getElementById('mainCats').innerHTML=home.main.map(m=>`
+      <div class="main-cat" onclick="openMain('${m.id}')">
+        <span class="ic">${m.icon}</span><b>${m.name}</b><span class="d">${m.desc}</span>
+      </div>`).join('');
   }catch(e){toast(e.message)}
 }
 function renderCar(){
-  if(!car){document.getElementById('carLabel').textContent='أضف سيارتك';document.getElementById('carSub').textContent='للتوافق الدقيق';return}
-  document.getElementById('carLabel').textContent=`${car.brand} ${car.model} ${car.year||''}`;
-  document.getElementById('carSub').textContent=`${car.cylinders||''} سلندر — ${car.fuel||''}${car.trim?' · '+car.trim:''}`;
-}
-function renderCats(){
-  const productCats=new Set(['tires','oils','batteries','parts']);
-  document.getElementById('catScroll').innerHTML=cats.map(c=>`
-    <div class="chip" onclick="openCat(${c.id},'${c.slug}','${c.name}')"><span class="cat-icon">${c.icon||''}</span>${c.name}</div>`).join('');
+  document.getElementById('carLabel').textContent=car?carText(car):'أضف سيارتك';
+  document.getElementById('carSub').textContent=car?`${car.cylinders||''} سلندر · ${car.fuel||''}${car.body?' · '+car.body:''}`:'للتوافق الدقيق';
 }
 function renderPoints(pts){
   document.getElementById('ptsHome').textContent=pts.total+' نقطة';
-  document.getElementById('ptsNext').textContent=pts.remaining?`باقي ${pts.remaining} نقطة لمكافأة قادمة`:'وصلت لمكافأة!';
-}
-async function renderHomeSuggest(){
-  const el=document.getElementById('homeSuggest');
-  el.innerHTML='<div class="loading">جاري التحميل...</div>';
-  try{
-    const svcs=await api('/api/services?category_id=6'); // brakes as sample popular
-    el.innerHTML=svcs.slice(0,5).map(s=>`
-      <div class="card tap" onclick="openService(${s.id},'${s.name.replace(/'/g,"")}')">
-        <div class="row"><b>${s.name}</b><span class="dim">${s.category_name||''}</span></div>
-      </div>`).join('')||'<p class="dim">لا توجد اقتراحات</p>';
-  }catch(e){el.innerHTML='<p class="dim">—</p>'}
+  document.getElementById('ptsNext').textContent=pts.remaining?`باقي ${pts.remaining} للمكافأة`:'وصلت لمكافأة!';
 }
 
-async function openCat(id,slug,name){
-  curCat={id,slug,name};
-  if(['tires','oils','batteries','parts'].includes(slug)){
-    const map={tires:'كفرات',oils:'زيوت',batteries:'بطاريات',parts:'فلاتر'};
-    return openProducts(map[slug]||name, name);
-  }
-  document.getElementById('subsTitle').textContent=name;
-  const subs=await api('/api/subcategories?category_id='+id);
-  document.getElementById('subsList').innerHTML=subs.map(s=>`
-    <div class="card tap" onclick="openSub(${s.id},'${s.name.replace(/'/g,"")}')"><b>${s.name}</b></div>`).join('')||'<div class="empty">لا توجد تصنيفات</div>';
-  go('s-subs');
+function openMain(id){
+  curMain=id;
+  if(id==='workshop') return openWorkshopCats();
+  // products need vehicle first
+  vpContext={type:'product', kind:id};
+  startVehiclePicker();
 }
-async function openSub(id,name){
+
+async function openWorkshopCats(){
+  const list=await api('/api/categories?parent_id=0&scope=workshop');
+  document.getElementById('wcatsList').innerHTML=list.map(c=>`
+    <div class="card tap" onclick="openWSub(${c.id},'${c.name.replace(/'/g,"")}')">
+      <div class="row"><span>${c.icon||''} <b>${c.name}</b></span><span class="dim">‹</span></div>
+    </div>`).join('');
+  go('s-wcats');
+}
+async function openWSub(id,name){
+  curCat={id,name};
+  document.getElementById('wsubTitle').textContent=name;
+  const list=await api('/api/categories?parent_id='+id+'&scope=workshop');
+  if(!list.length){
+    // no sub — go services under this cat
+    return openSvcs(id,name);
+  }
+  document.getElementById('wsubList').innerHTML=list.map(c=>`
+    <div class="card tap" onclick="openSvcs(${c.id},'${c.name.replace(/'/g,"")}')"><b>${c.name}</b></div>`).join('');
+  go('s-wsub');
+}
+async function openSvcs(id,name){
   curSub={id,name};
+  // ensure vehicle selected
+  if(!car){
+    vpContext={type:'service', categoryId:id, name:name};
+    return startVehiclePicker();
+  }
   document.getElementById('svcsTitle').textContent=name;
-  const svcs=await api('/api/services?subcategory_id='+id);
-  document.getElementById('svcsList').innerHTML=svcs.map(s=>`
-    <div class="card tap" onclick="openService(${s.id},'${s.name.replace(/'/g,"")}')">
+  document.getElementById('svcsCar').textContent='مناسبة لـ '+carText(car);
+  const svcs=await api('/api/services?category_id='+id);
+  document.getElementById('svcsList').innerHTML=svcs.length?svcs.map(s=>`
+    <div class="card tap" onclick="openCompare(${s.id},'${s.name.replace(/'/g,"")}')">
       <b>${s.name}</b>
       <div class="dim" style="margin-top:6px">${s.description||''}</div>
-    </div>`).join('')||'<div class="empty">لا توجد خدمات — قريباً</div>';
+    </div>`).join(''):'<div class="empty">لا توجد خدمات في هذا التصنيف بعد</div>';
   go('s-svcs');
 }
-async function openService(id,name){
+
+async function openCompare(id,name){
   curSvc={id,name};
   document.getElementById('cmpTitle').textContent=name;
-  const list=await api('/api/offers?service_def_id='+id);
-  offers=list;
-  if(list[0]) document.getElementById('cmpDesc').textContent=list[0].description||'قارن العروض واختر الأنسب';
-  else document.getElementById('cmpDesc').textContent='لا توجد عروض حالياً';
+  document.getElementById('cmpCar').textContent=car?('لـ '+carText(car)):'';
+  offers=await api('/api/offers?service_def_id='+id);
   sortMode='best';
   document.querySelectorAll('#sortRow .chip').forEach(c=>c.classList.toggle('on',c.dataset.s==='best'));
   renderOffers();
@@ -377,9 +399,8 @@ function renderOffers(){
   else if(sortMode==='rating') list.sort((a,b)=>(b.turbas_rating||0)-(a.turbas_rating||0));
   else if(sortMode==='warranty') list.sort((a,b)=>(b.warranty_days||0)-(a.warranty_days||0));
   else list.sort((a,b)=>((b.turbas_rating||0)*20+(b.jobs_count||0)*0.05-(b.price||0)*0.01)-((a.turbas_rating||0)*20+(a.jobs_count||0)*0.05-(a.price||0)*0.01));
-
   document.getElementById('offersList').innerHTML=list.length?list.map((o,i)=>`
-    <div class="card tap offer" onclick="openCheckout(${o.id})">
+    <div class="card tap" onclick="openCheckout(${o.id})">
       <div class="row"><b>خيار ${i+1}</b><span class="amber">${o.price} ر.س</span></div>
       <div class="meta">
         <span>⏱ <b>${o.duration||'—'}</b></span>
@@ -389,17 +410,16 @@ function renderOffers(){
         <span>🔧 <b>${o.jobs_count||0}</b> عملية</span>
         <span>${o.warranty_ok?'✅ ملتزم بالضمان':'—'}</span>
       </div>
-      <div class="dim" style="margin-top:8px">المنطقة: ${o.area||'صناعية العاصمة'} · الاسم يظهر بعد الدفع</div>
-    </div>`).join(''):'<div class="empty">ما فيه عروض لهذه الخدمة بعد</div>';
+      <div class="dim" style="margin-top:8px">المنطقة: ${o.area||'صناعية العاصمة'} · الاسم بعد الدفع</div>
+    </div>`).join(''):'<div class="empty">ما فيه عروض لهذه الخدمة</div>';
 }
 function openCheckout(oid){
-  curOffer=offers.find(o=>o.id===oid);
-  if(!curOffer) return;
-  document.getElementById('ckTitle').textContent=curOffer.service_name||curSvc?.name||'خدمة';
+  curOffer=offers.find(o=>o.id===oid); if(!curOffer)return;
+  document.getElementById('ckTitle').textContent=curOffer.service_name||curSvc?.name;
   document.getElementById('ckPrice').textContent=curOffer.price+' ر.س';
   document.getElementById('ckDur').textContent=curOffer.duration||'—';
   document.getElementById('ckWar').textContent=(curOffer.warranty_days||0)+' يوم';
-  document.getElementById('ckPts').textContent='+'+(Math.floor(curOffer.price/10))+' نقطة';
+  document.getElementById('ckPts').textContent='+'+Math.floor(curOffer.price/10)+' نقطة';
   const inc=(curOffer.includes||curOffer.def_includes||'').split(/[·\n]/).filter(Boolean);
   const exc=(curOffer.excludes||curOffer.def_excludes||'').split(/[·\n]/).filter(Boolean);
   document.getElementById('ckInc').innerHTML=inc.map(x=>`<div class="inc">✔ ${x.trim()}</div>`).join('')||'<div class="dim">—</div>';
@@ -408,41 +428,197 @@ function openCheckout(oid){
 }
 async function payOffer(){
   try{
-    const carInfo=car?`${car.brand} ${car.model} ${car.year}`:'سيارتي';
     const res=await api('/api/orders',{method:'POST',body:{
       user_id:user.id, offer_id:curOffer.id, title:curOffer.service_name||curSvc?.name,
-      type:'service', price:curOffer.price, car_info:carInfo
+      type:'service', price:curOffer.price, car_info:carText(car), car_id:car?.id
     }});
     chatOrderId=res.id;
     document.getElementById('sucId').textContent=res.id;
     document.getElementById('sucName').textContent=res.partner_name||'—';
-    document.getElementById('sucArea').textContent=res.partner_area||'';
-    document.getElementById('sucPhone').textContent=res.partner_phone?('تواصل عبر التطبيق · '+res.partner_phone):'التواصل عبر محادثة الطلب';
+    document.getElementById('sucArea').textContent=(res.partner_area||'')+(res.partner_code?' · '+res.partner_code:'');
+    document.getElementById('sucPhone').textContent=res.partner_phone?('تواصل: '+res.partner_phone):'عبر محادثة الطلب';
     document.getElementById('sucTitle').textContent=curOffer.service_name||curSvc?.name;
     document.getElementById('sucPrice').textContent=curOffer.price+' ر.س';
-    toast('تم الدفع · +'+(res.points_earned||0)+' نقطة');
+    toast('تم · +'+(res.points_earned||0)+' نقطة');
     go('s-success');
   }catch(e){toast(e.message)}
 }
 
-async function openProducts(cat, title){
-  document.getElementById('prodTitle').textContent=title||cat;
-  document.getElementById('prodCarHint').textContent=car?`مناسب لـ ${car.brand} ${car.model}`:'أضف سيارة لفلترة أدق';
-  const list=await api('/api/products?category='+encodeURIComponent(cat));
-  // filter by car brand loosely
-  let items=list;
-  if(car&&car.brand){
-    const fb=list.filter(p=>!p.brands||p.brands.includes(car.brand));
-    if(fb.length) items=fb;
+/* Vehicle picker */
+function startVehiclePicker(){
+  vpStep='mode'; vpData={};
+  document.getElementById('vpTitle').textContent='اختر السيارة';
+  document.getElementById('vpSearch').style.display='none';
+  document.getElementById('vpMine').classList.add('on');
+  document.getElementById('vpAll').classList.remove('on');
+  renderVpMine();
+  go('s-vpick');
+}
+function startAddCar(){
+  vpContext={type:'addcar'};
+  startVehiclePicker();
+}
+function vpMode(m){
+  document.getElementById('vpMine').classList.toggle('on',m==='mine');
+  document.getElementById('vpAll').classList.toggle('on',m==='all');
+  if(m==='mine'){ vpStep='mode'; document.getElementById('vpSearch').style.display='none'; renderVpMine(); }
+  else { vpStep='brands'; loadVpBrands(); }
+}
+function renderVpMine(){
+  document.getElementById('vpList').innerHTML=myCars.length?myCars.map(c=>`
+    <div class="card tap" onclick="pickMyCar(${c.id})">
+      <b>${carText(c)}</b>
+      <div class="dim">${c.body||''} · ${c.fuel||''}</div>
+    </div>`).join('')+'<div class="card tap" onclick="vpMode(\'all\')"><b>➕ سيارة غير مسجلة / من الكتالوج</b></div>':
+    '<div class="empty">لا توجد سيارات</div><div class="card tap" onclick="vpMode(\'all\')"><b>اختر من الكتالوج</b></div>';
+}
+async function pickMyCar(id){
+  car=myCars.find(c=>c.id===id);
+  renderCar();
+  afterVehiclePicked();
+}
+async function loadVpBrands(){
+  document.getElementById('vpTitle').textContent='اختر الشركة';
+  document.getElementById('vpSearch').style.display='block';
+  const brands=await api('/api/vehicle/brands');
+  vpListCache=brands;
+  renderVpBrands(brands);
+}
+function renderVpBrands(list){
+  document.getElementById('vpList').innerHTML=list.map(b=>`
+    <div class="card tap" onclick="pickBrand(${b.id},'${b.name}')"><b>${b.name}</b><div class="dim">${b.name_en||''}</div></div>`).join('');
+}
+function vpFilter(){
+  const q=(document.getElementById('vpSearch').value||'').trim();
+  if(vpStep==='brands'){
+    const f=vpListCache.filter(b=>!q||b.name.includes(q)||(b.name_en||'').toLowerCase().includes(q.toLowerCase()));
+    renderVpBrands(f);
   }
-  document.getElementById('prodList').innerHTML=items.map(p=>`
+}
+async function pickBrand(id,name){
+  vpData.brand=name; vpData.brandId=id; vpStep='models';
+  document.getElementById('vpTitle').textContent=name+' — الموديل';
+  document.getElementById('vpSearch').style.display='none';
+  const models=await api('/api/vehicle/models?brand_id='+id);
+  document.getElementById('vpList').innerHTML=models.map(m=>`
+    <div class="card tap" onclick='pickModel(${JSON.stringify(m)})'><b>${m.name}</b><div class="dim">${m.name_en||''} · ${m.years||''}</div></div>`).join('');
+}
+async function pickModel(m){
+  vpData.model=m.name; vpData.yearsRange=m.years; vpData.bodies=(m.bodies||'').split(',').filter(Boolean);
+  vpData.trims=(m.trims||'').split(',').filter(Boolean);
+  vpStep='years';
+  document.getElementById('vpTitle').textContent=vpData.brand+' '+m.name+' — السنة';
+  const years=await api('/api/vehicle/years?years='+encodeURIComponent(m.years||'2015-2026'));
+  document.getElementById('vpList').innerHTML=years.reverse().map(y=>`
+    <div class="card tap" onclick="pickYear('${y}')"><b>${y}</b></div>`).join('');
+}
+function pickYear(y){
+  vpData.year=y;
+  if(vpData.bodies.length>1){
+    vpStep='body';
+    document.getElementById('vpTitle').textContent='نوع السيارة';
+    document.getElementById('vpList').innerHTML=vpData.bodies.map(b=>`
+      <div class="card tap" onclick="pickBody('${b.trim()}')"><b>${b.trim()}</b></div>`).join('');
+  } else {
+    vpData.body=vpData.bodies[0]||'';
+    pickBodyNext();
+  }
+}
+function pickBody(b){ vpData.body=b; pickBodyNext(); }
+function pickBodyNext(){
+  if(vpData.trims.length){
+    vpStep='trim';
+    document.getElementById('vpTitle').textContent='الفئة';
+    document.getElementById('vpList').innerHTML=vpData.trims.map(t=>`
+      <div class="card tap" onclick="pickTrim('${t.trim()}')"><b>${t.trim()}</b></div>`).join('')+
+      `<div class="card tap" onclick="pickTrim('')"><b>بدون تحديد</b></div>`;
+  } else pickTrim('');
+}
+function pickTrim(t){
+  vpData.trim=t;
+  vpStep='color';
+  document.getElementById('vpTitle').textContent='اللون';
+  const colors=['أبيض','أسود','فضي','رمادي','أزرق','أحمر','بني','أخرى'];
+  document.getElementById('vpList').innerHTML=colors.map(c=>`
+    <div class="card tap" onclick="pickColor('${c}')"><b>${c}</b></div>`).join('')+
+    `<input class="field" id="colorCustom" placeholder="أو اكتب اللون"><button class="btn" onclick="pickColor(document.getElementById('colorCustom').value||'أخرى')">تأكيد اللون</button>`;
+}
+async function pickColor(color){
+  vpData.color=color;
+  // build car object
+  const newCar={
+    brand:vpData.brand, model:vpData.model, year:String(vpData.year),
+    body:vpData.body, trim:vpData.trim, color:vpData.color,
+    cylinders:'', fuel:'بنزين', engine:'', transmission:'أوتوماتيك'
+  };
+  if(vpContext?.type==='addcar' || true){
+    // always save to my cars when from catalog for convenience
+    try{
+      await api('/api/cars',{method:'POST',body:{user_id:user.id, ...newCar, is_default:1}});
+      myCars=await api('/api/users/'+user.id+'/cars');
+      car=myCars.find(c=>c.is_default)||myCars[0];
+    }catch(e){ car=newCar; }
+  } else {
+    car=newCar;
+  }
+  renderCar();
+  afterVehiclePicked();
+}
+function afterVehiclePicked(){
+  if(vpContext?.type==='service'){
+    openSvcs(vpContext.categoryId, vpContext.name);
+  } else if(vpContext?.type==='product'){
+    openProducts(vpContext.kind);
+  } else if(vpContext?.type==='addcar'){
+    toast('تمت إضافة السيارة'); go('s-cars'); loadCars();
+  } else {
+    go('s-home');
+  }
+}
+function vpBack(){
+  if(vpStep==='brands'||vpStep==='mode'){ go('s-home'); return; }
+  if(vpStep==='models'){ loadVpBrands(); vpStep='brands'; return; }
+  if(vpStep==='years'){ pickBrand(vpData.brandId, vpData.brand); return; }
+  if(vpStep==='body'){ pickYear(vpData.year); return; }
+  if(vpStep==='trim'){ pickBody(vpData.body); return; }
+  if(vpStep==='color'){ pickTrim(vpData.trim||''); return; }
+  go('s-home');
+}
+
+/* Products */
+async function openProducts(kind){
+  const titles={parts:'قطع غيار',batteries:'بطاريات',oils:'زيوت',tires:'كفرات'};
+  document.getElementById('prodTitle').textContent=titles[kind]||kind;
+  document.getElementById('prodCar').textContent=car?('مناسبة لـ '+carText(car)):'';
+  let list=await api('/api/products?kind='+kind);
+  if(car&&car.brand){
+    const f=list.filter(p=>!p.brands||p.brands.includes(car.brand));
+    if(f.length) list=f;
+  }
+  // brand filter chips
+  const brands=['الكل',...new Set(list.map(p=>p.brand).filter(Boolean))];
+  document.getElementById('prodFilters').innerHTML=brands.map((b,i)=>`
+    <div class="chip ${i===0?'on':''}" onclick="filterProd(this,'${kind}','${b}')">${b}</div>`).join('');
+  renderProdList(list);
+  go('s-prod');
+}
+async function filterProd(el,kind,brand){
+  document.querySelectorAll('#prodFilters .chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  let url='/api/products?kind='+kind;
+  if(brand&&brand!=='الكل') url+='&brand='+encodeURIComponent(brand);
+  let list=await api(url);
+  if(car&&car.brand){const f=list.filter(p=>!p.brands||p.brands.includes(car.brand)); if(f.length)list=f;}
+  renderProdList(list);
+}
+function renderProdList(list){
+  document.getElementById('prodList').innerHTML=list.length?list.map(p=>`
     <div class="card tap" onclick='openProd(${JSON.stringify(p)})'>
       <div class="row"><b>${p.name}</b><span class="amber">${p.price} ر.س</span></div>
-      <div class="dim" style="margin-top:6px">${p.brand||''} · ${p.grade||''} · ${p.meta||''}</div>
-      <div class="dim">${p.brands?('يناسب: '+p.brands+' '+(p.models||'')):'—'}</div>
+      <div class="dim" style="margin-top:6px">${p.brand||''} · ${p.grade||''} ${p.meta?('· '+p.meta):''}</div>
+      <div class="dim">${p.brands?('يناسب: '+p.brands):''}</div>
       <span class="badge" style="margin-top:6px">🛡 ${p.warranty||''}</span>
-    </div>`).join('')||'<div class="empty">لا توجد منتجات</div>';
-  go('s-products');
+    </div>`).join(''):'<div class="empty">لا توجد منتجات</div>';
 }
 function openProd(p){
   curProd=p; zoneFee=0; zoneName='';
@@ -462,29 +638,28 @@ function pickZ(el,fee,name){
   zoneName=name; zoneFee=(name.includes('صناعية العاصمة')||!fee)?0:fee;
 }
 async function payProduct(){
-  if(!zoneName) return toast('اختر منطقة التوصيل');
+  if(!zoneName) return toast('اختر المنطقة');
   const vin=document.getElementById('pckVin').value.trim();
-  if(!vin||vin.length<5) return toast('أدخل رقم الهيكل للتأكد من التوافق');
+  if(!vin||vin.length<5) return toast('أدخل رقم الهيكل');
   try{
     const res=await api('/api/orders',{method:'POST',body:{
-      user_id:user.id, partner_id:null, product_id:curProd.id,
-      title:curProd.name, type:'part', price:curProd.price, delivery_fee:zoneFee,
-      zone:zoneName, vin:vin, car_info:'VIN: '+vin
+      user_id:user.id, product_id:curProd.id, partner_id:curProd.partner_id,
+      title:curProd.name, type:curProd.kind||'part', price:curProd.price,
+      delivery_fee:zoneFee, zone:zoneName, vin:vin, car_info:'VIN: '+vin, car_id:car?.id
     }});
-    // product orders need partner from product - fix via offer path: send partner by looking up
-    // server needs partner_id from product - we'll set in body if we have it from list
     chatOrderId=res.id;
     document.getElementById('sucId').textContent=res.id;
-    document.getElementById('sucName').textContent=res.partner_name||'محل قطع';
+    document.getElementById('sucName').textContent=res.partner_name||'محل';
     document.getElementById('sucArea').textContent=res.partner_area||zoneName;
     document.getElementById('sucPhone').textContent=res.partner_phone||'عبر المحادثة';
     document.getElementById('sucTitle').textContent=curProd.name;
     document.getElementById('sucPrice').textContent=(curProd.price+zoneFee)+' ر.س';
-    await api('/api/orders/'+res.id+'/messages',{method:'POST',body:{sender:'customer',body:'VIN: '+vin+'\nطلب: '+curProd.name}});
+    await api('/api/orders/'+res.id+'/messages',{method:'POST',body:{sender:'customer',body:'VIN: '+vin+'\n'+curProd.name,msg_type:'text'}});
     go('s-success');
   }catch(e){toast(e.message)}
 }
 
+/* Orders & chat */
 async function loadOrders(){
   let list=await api('/api/orders?user_id='+user.id);
   if(ordFilter!=='all') list=list.filter(o=>o.status===ordFilter);
@@ -492,18 +667,18 @@ async function loadOrders(){
     <div class="card tap" onclick="openOrder(${o.id})">
       <div class="row"><b>${o.title}</b><span class="badge">${o.status_text}</span></div>
       <div class="dim" style="margin-top:6px">${o.partner_name||'مقدم خدمة'} · #${o.id}</div>
-      <div class="row" style="margin-top:6px"><span class="amber">${o.price} ر.س</span><span class="dim">${(o.created_at||'').slice(0,10)}</span></div>
+      <div class="row" style="margin-top:6px"><span class="amber">${o.price} ر.س</span></div>
     </div>`).join(''):'<div class="empty">ما فيه طلبات</div>';
 }
 function ordTab(el){
-  document.querySelectorAll('#ordTabs .chip').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('#s-orders .chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); ordFilter=el.dataset.t; loadOrders();
 }
 async function openOrder(id){
   const o=await api('/api/orders/'+id);
   chatOrderId=o.id;
   document.getElementById('odTitle').textContent='طلب #'+o.id;
-  document.getElementById('odMeta').textContent=o.status_text+' · '+(o.created_at||'').slice(0,16);
+  document.getElementById('odMeta').textContent=o.status_text;
   document.getElementById('odName').textContent=o.title;
   document.getElementById('odPrice').textContent=o.price+' ر.س';
   document.getElementById('odPartner').textContent=(o.partner_name||'')+(o.partner_area?' · '+o.partner_area:'');
@@ -525,10 +700,18 @@ async function openOrder(id){
 }
 async function addonAct(aid,action){
   await api('/api/orders/'+chatOrderId+'/addons/'+aid,{method:'POST',body:{action}});
-  toast(action==='accept'?'تم القبول والدفع':'تم الرفض');
-  openOrder(chatOrderId);
+  toast(action==='accept'?'تم القبول':'تم الرفض'); openOrder(chatOrderId);
 }
-async function openOrderChat(){
+async function loadChats(){
+  const list=await api('/api/conversations?user_id='+user.id);
+  document.getElementById('chatsList').innerHTML=list.length?list.map(c=>`
+    <div class="card tap" onclick="chatOrderId=${c.order_id};openChat()">
+      <div class="row"><b>${c.title}</b><span class="dim">#${c.order_id}</span></div>
+      <div class="dim" style="margin-top:6px">${c.last_msg||c.status_text||'—'}</div>
+      <div class="dim" style="margin-top:4px">${c.car_info||''}</div>
+    </div>`).join(''):'<div class="empty">لا محادثات بعد — سوّ طلب أولاً</div>';
+}
+async function openChat(){
   if(!chatOrderId) return;
   document.getElementById('chatSub').textContent='طلب #'+chatOrderId;
   const msgs=await api('/api/orders/'+chatOrderId+'/messages');
@@ -538,97 +721,54 @@ async function openOrderChat(){
 }
 async function sendMsg(){
   const i=document.getElementById('chatIn'); const v=i.value.trim(); if(!v||!chatOrderId)return;
-  await api('/api/orders/'+chatOrderId+'/messages',{method:'POST',body:{sender:'customer',body:v}});
-  i.value=''; openOrderChat();
+  await api('/api/orders/'+chatOrderId+'/messages',{method:'POST',body:{sender:'customer',body:v,msg_type:'text'}});
+  i.value=''; openChat();
 }
 async function claimWarranty(){
-  if(!chatOrderId)return;
-  const reason=prompt('وصف المشكلة المتعلقة بالضمان:');
-  if(!reason)return;
+  const reason=prompt('وصف المشكلة:'); if(!reason)return;
   await api('/api/warranty',{method:'POST',body:{order_id:chatOrderId,user_id:user.id,reason}});
   toast('تم إرسال مطالبة الضمان');
 }
-
-async function goCars(){ /* alias */ }
-function showAddCar(){document.getElementById('addCarBox').classList.toggle('hide')}
-async function saveCar(){
-  await api('/api/cars',{method:'POST',body:{
-    user_id:user.id, brand:document.getElementById('cBrand').value,
-    model:document.getElementById('cModel').value, year:document.getElementById('cYear').value,
-    trim:document.getElementById('cTrim').value, body:document.getElementById('cBody').value,
-    cylinders:document.getElementById('cCyl').value, fuel:document.getElementById('cFuel').value,
-    color:document.getElementById('cColor').value, is_default:1
-  }});
-  toast('تم الحفظ');
-  const cars=await api('/api/users/'+user.id+'/cars');
-  car=cars.find(x=>x.is_default)||cars[0];
-  renderCar(); loadCars(); document.getElementById('addCarBox').classList.add('hide');
-}
 async function loadCars(){
-  const cars=await api('/api/users/'+user.id+'/cars');
-  document.getElementById('carsList').innerHTML=cars.map(c=>`
-    <div class="card tap" onclick="selectCar(${c.id})">
-      <b>${c.brand} ${c.model} ${c.year||''}</b>
-      <div class="dim">${c.cylinders||''} سلندر · ${c.fuel||''} ${c.is_default?'· الحالية':''}</div>
-    </div>`).join('')||'<div class="empty">لا توجد سيارات</div>';
+  myCars=await api('/api/users/'+user.id+'/cars');
+  document.getElementById('carsList').innerHTML=myCars.map(c=>`
+    <div class="card">
+      <div class="row"><b class="tap" onclick="selectCar(${c.id})">${carText(c)}</b>
+        <span class="dim tap" onclick="showHist(${c.id},'${carText(c)}')">السجل</span></div>
+      <div class="dim">${c.body||''} · ${c.color||''} ${c.is_default?'· الحالية':''}</div>
+    </div>`).join('')||'<div class="empty">لا سيارات</div>';
 }
-async function selectCar(id){
-  // set default by re-saving - simplified: just update local
-  const cars=await api('/api/users/'+user.id+'/cars');
-  car=cars.find(c=>c.id===id);
-  renderCar(); toast('تم اختيار السيارة'); go('s-home');
+async function selectCar(id){ car=myCars.find(c=>c.id===id); renderCar(); toast('تم الاختيار'); go('s-home'); }
+async function showHist(id,title){
+  document.getElementById('histTitle').textContent='سجل · '+title;
+  const h=await api('/api/cars/'+id+'/history');
+  document.getElementById('histList').innerHTML=h.length?h.map(x=>`
+    <div class="card"><b>${x.title}</b><div class="dim">${x.partner_name||''} · ${x.price} ر.س</div>
+    <div class="dim">${(x.done_at||'').slice(0,10)}</div></div>`).join(''):'<div class="empty">لا سجل بعد</div>';
+  go('s-car-hist');
 }
-// intercept go to cars
-const _go=go;
-go=function(id){ if(id==='s-cars') loadCars(); if(id==='s-points') loadPts(); _go(id); };
-
 async function loadPts(){
   const pts=await api('/api/users/'+user.id+'/points');
   document.getElementById('ptsBig').textContent=pts.total;
-  document.getElementById('ptsRemain').textContent=`باقي ${pts.remaining} نقطة لمكافأة (كل 100)`;
+  document.getElementById('ptsRemain').textContent=`باقي ${pts.remaining} نقطة للمكافأة`;
   document.getElementById('ptsLog').innerHTML=pts.log.map(l=>`
     <div class="card"><div class="row"><b>${l.label}</b><span class="amber">+${l.points}</span></div>
     <div class="dim">${(l.created_at||'').slice(0,16)}</div></div>`).join('')||'<p class="dim">لا سجل</p>';
 }
 function doSearch(){
   const q=(document.getElementById('searchQ').value||'').trim();
-  if(!q) return toast('اكتب اسم خدمة');
-  if(/فحم|فرامل/.test(q)) openCat(6,'brakes','فرامل');
-  else if(/مكيف|فريون/.test(q)) openCat(5,'ac','مكيف');
-  else if(/كهرب|دينمو|سلف/.test(q)) openCat(2,'electrical','كهرباء');
-  else if(/زيت/.test(q)) openProducts('زيوت','زيوت');
-  else if(/بطار/.test(q)) openProducts('بطاريات','بطاريات');
-  else if(/كفر|إطار/.test(q)) openProducts('كفرات','إطارات');
-  else if(/رديتر|تبريد/.test(q)) openCat(3,'cooling','رديترات وتبريد');
-  else openCat(1,'mechanics','ميكانيكا');
+  if(!q) return toast('اكتب كلمة');
+  if(/فحم|فرامل/.test(q)) openWorkshopCats();
+  else if(/زيت/.test(q)){ vpContext={type:'product',kind:'oils'}; startVehiclePicker(); }
+  else if(/بطار/.test(q)){ vpContext={type:'product',kind:'batteries'}; startVehiclePicker(); }
+  else if(/كفر|إطار/.test(q)){ vpContext={type:'product',kind:'tires'}; startVehiclePicker(); }
+  else if(/قطع/.test(q)){ vpContext={type:'product',kind:'parts'}; startVehiclePicker(); }
+  else openWorkshopCats();
 }
 
-// Fix product order: include partner_id from product object
-const _payProduct=payProduct;
-payProduct=async function(){
-  if(!zoneName) return toast('اختر منطقة التوصيل');
-  const vin=document.getElementById('pckVin').value.trim();
-  if(!vin||vin.length<5) return toast('أدخل رقم الهيكل للتأكد من التوافق');
-  try{
-    // fetch full product with partner via list - curProd may lack partner_id; get from API detail
-    const all=await api('/api/products?category='+encodeURIComponent(curProd.category||'فلاتر'));
-    const full=all.find(x=>x.id===curProd.id)||curProd;
-    const res=await api('/api/orders',{method:'POST',body:{
-      user_id:user.id, partner_id:full.partner_id, product_id:curProd.id,
-      title:curProd.name, type:'part', price:curProd.price, delivery_fee:zoneFee,
-      zone:zoneName, vin:vin, car_info:'VIN: '+vin
-    }});
-    chatOrderId=res.id;
-    document.getElementById('sucId').textContent=res.id;
-    document.getElementById('sucName').textContent=res.partner_name||'محل';
-    document.getElementById('sucArea').textContent=res.partner_area||zoneName;
-    document.getElementById('sucPhone').textContent=res.partner_phone||'عبر المحادثة';
-    document.getElementById('sucTitle').textContent=curProd.name;
-    document.getElementById('sucPrice').textContent=(curProd.price+zoneFee)+' ر.س';
-    await api('/api/orders/'+res.id+'/messages',{method:'POST',body:{sender:'customer',body:'VIN: '+vin+'\nطلب: '+curProd.name}});
-    go('s-success');
-  }catch(e){toast(e.message)}
-};
+// enhance go for cars
+const _go=go;
+go=function(id){ if(id==='s-cars') loadCars(); if(id==='s-points') loadPts(); _go(id); };
 
 boot();
 </script>

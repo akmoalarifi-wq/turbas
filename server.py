@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""ترباس — Marketplace خدمات وقطع غيار السيارات"""
+"""ترباس v3 — Marketplace خدمات ومنتجات السيارات"""
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
@@ -12,11 +12,17 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 if not (STATIC / "index.html").exists():
     STATIC = ROOT
-DB = ROOT / "data" / "turbas.db"
-DB.parent.mkdir(parents=True, exist_ok=True)
+DB = Path(os.environ.get("TURBAS_DB", str(ROOT / "data" / "turbas.db")))
+try:
+    DB.parent.mkdir(parents=True, exist_ok=True)
+except Exception:
+    DB = Path("/tmp") / "turbas.db"
+
+
+PREFIX = {"workshop": "WR", "parts": "PR", "batteries": "BT", "oils": "OI", "tires": "TY"}
 
 def get_db():
-    conn = sqlite3.connect(str(DB))
+    conn = sqlite3.connect(str(DB), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -37,12 +43,14 @@ def init_db():
     CREATE TABLE IF NOT EXISTS cars (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER, brand TEXT, model TEXT, year TEXT,
-        trim TEXT, color TEXT, body TEXT, cylinders TEXT, fuel TEXT,
-        is_default INTEGER DEFAULT 0
+        body TEXT, trim TEXT, engine TEXT, cylinders TEXT, fuel TEXT,
+        transmission TEXT, color TEXT, is_default INTEGER DEFAULT 0,
+        plate TEXT DEFAULT '', odometer INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS partners (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT, phone TEXT UNIQUE, type TEXT DEFAULT 'workshop',
+        code TEXT UNIQUE, name TEXT, phone TEXT UNIQUE,
+        type TEXT DEFAULT 'workshop',
         area TEXT DEFAULT 'صناعية العاصمة',
         google_rating REAL DEFAULT 4.5,
         turbas_rating REAL DEFAULT 4.7,
@@ -52,32 +60,41 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        slug TEXT UNIQUE, name TEXT, icon TEXT, sort INTEGER DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS subcategories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        category_id INTEGER, slug TEXT, name TEXT, sort INTEGER DEFAULT 0
+        parent_id INTEGER DEFAULT 0,
+        slug TEXT, name TEXT, icon TEXT, sort INTEGER DEFAULT 0,
+        scope TEXT DEFAULT 'workshop'
     );
     CREATE TABLE IF NOT EXISTS service_defs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        subcategory_id INTEGER, name TEXT, description TEXT,
-        includes TEXT DEFAULT '', excludes TEXT DEFAULT '',
-        sort INTEGER DEFAULT 0
+        category_id INTEGER, name TEXT, description TEXT,
+        includes TEXT DEFAULT '', excludes TEXT DEFAULT '', sort INTEGER DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS offers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         partner_id INTEGER, service_def_id INTEGER,
         price REAL, duration TEXT, warranty_days INTEGER DEFAULT 30,
-        includes TEXT DEFAULT '', excludes TEXT DEFAULT '',
-        active INTEGER DEFAULT 1
+        includes TEXT DEFAULT '', excludes TEXT DEFAULT '', active INTEGER DEFAULT 1
     );
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        partner_id INTEGER, category TEXT, name TEXT, brand TEXT,
-        grade TEXT DEFAULT 'تجاري', part_number TEXT DEFAULT '',
-        price REAL, warranty TEXT, meta TEXT DEFAULT '',
-        brands TEXT DEFAULT '', models TEXT DEFAULT '', years TEXT DEFAULT '',
+        partner_id INTEGER, kind TEXT,
+        name TEXT, brand TEXT, grade TEXT DEFAULT 'تجاري',
+        part_number TEXT DEFAULT '', price REAL, warranty TEXT,
+        meta TEXT DEFAULT '', brands TEXT DEFAULT '', models TEXT DEFAULT '',
+        years TEXT DEFAULT '',
+        width TEXT DEFAULT '', aspect TEXT DEFAULT '', rim TEXT DEFAULT '',
+        viscosity TEXT DEFAULT '', volume TEXT DEFAULT '',
+        cca TEXT DEFAULT '', size_code TEXT DEFAULT '',
         stock INTEGER DEFAULT 10, delivery INTEGER DEFAULT 1, active INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS vehicle_brands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE, name_en TEXT, sort INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS vehicle_models (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        brand_id INTEGER, name TEXT, name_en TEXT,
+        years TEXT, bodies TEXT DEFAULT '', trims TEXT DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +102,7 @@ def init_db():
         product_id INTEGER, title TEXT, type TEXT DEFAULT 'service',
         price REAL, delivery_fee REAL DEFAULT 0,
         status TEXT DEFAULT 'paid', status_text TEXT DEFAULT 'تم الدفع',
-        car_info TEXT, zone TEXT, vin TEXT, reveal INTEGER DEFAULT 0,
+        car_info TEXT, zone TEXT, vin TEXT, reveal INTEGER DEFAULT 1,
         created_at TEXT
     );
     CREATE TABLE IF NOT EXISTS order_addons (
@@ -95,7 +112,8 @@ def init_db():
     );
     CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER, sender TEXT, body TEXT, created_at TEXT
+        order_id INTEGER, sender TEXT, body TEXT,
+        msg_type TEXT DEFAULT 'text', created_at TEXT
     );
     CREATE TABLE IF NOT EXISTS points_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,165 +124,233 @@ def init_db():
         order_id INTEGER, user_id INTEGER, reason TEXT,
         status TEXT DEFAULT 'open', created_at TEXT
     );
+    CREATE TABLE IF NOT EXISTS service_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        car_id INTEGER, order_id INTEGER, title TEXT, price REAL,
+        partner_name TEXT, done_at TEXT, odometer INTEGER DEFAULT 0, notes TEXT
+    );
     """)
 
     if c.execute("SELECT COUNT(*) FROM categories").fetchone()[0] == 0:
-        cats = [
+        # root workshop service categories (parent_id=0, scope=workshop)
+        roots = [
             ("mechanics", "ميكانيكا", "🔧", 1),
             ("electrical", "كهرباء", "⚡", 2),
             ("cooling", "رديترات وتبريد", "🌡️", 3),
-            ("body", "بدي", "🚗", 4),
+            ("body", "بدي وسمكرة", "🚗", 4),
             ("ac", "مكيف", "❄️", 5),
             ("brakes", "فرامل", "🛑", 6),
-            ("tires", "إطارات", "🛞", 7),
-            ("oils", "زيوت", "🛢️", 8),
-            ("batteries", "بطاريات", "🔋", 9),
-            ("parts", "قطع غيار", "⚙️", 10),
+            ("suspension", "تعليق وعفشة", "🔩", 7),
+            ("diagnostics", "فحص وتشخيص", "🔍", 8),
+            ("programming", "برمجة وكمبيوتر", "💻", 9),
         ]
-        c.executemany("INSERT INTO categories (slug,name,icon,sort) VALUES (?,?,?,?)", cats)
+        for slug, name, icon, sort in roots:
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (0,?,?,?,?, 'workshop')",
+                      (slug, name, icon, sort))
 
-        subs = [
-            # mechanics
-            (1, "engine", "مكينة", 1), (1, "gearbox", "قير", 2), (1, "diff", "دفرنس", 3),
-            (1, "mounts", "كراسي مكينة", 4), (1, "belts", "سيور", 5), (1, "water_pump", "مضخة ماء", 6),
-            (1, "fuel_pump", "طرمبة بنزين", 7), (1, "cooling_sys", "نظام تبريد", 8),
-            (1, "oil_leak", "تهريب زيوت", 9), (1, "engine_check", "فحص مكينة", 10),
-            # electrical
-            (2, "elec_check", "فحص كهرباء", 1), (2, "battery_svc", "بطارية", 2),
-            (2, "alternator", "دينمو", 3), (2, "starter", "سلف", 4),
-            (2, "sensors", "حساسات", 5), (2, "fuses", "فيوزات", 6),
-            (2, "wiring", "أسلاك", 7), (2, "ecu", "كمبيوتر السيارة", 8),
-            (2, "programming", "برمجة", 9), (2, "lights", "إنارة", 10),
-            # cooling
-            (3, "radiator", "رديتر", 1), (3, "rad_clean", "تنظيف رديتر", 2),
-            (3, "rad_replace", "تغيير رديتر", 3), (3, "water_leak", "تهريب ماء", 4),
-            (3, "thermo", "بلف حرارة", 5), (3, "fan", "مروحة", 6),
-            (3, "cool_check", "فحص نظام التبريد", 7),
-            # body
-            (4, "bumper", "صدام", 1), (4, "fender", "رفرف", 2), (4, "hood", "كبوت", 3),
-            (4, "door", "باب", 4), (4, "trunk", "شنطة", 5), (4, "bodywork", "سمكرة", 6),
-            (4, "paint", "رش", 7), (4, "polish", "تلميع", 8),
-            # ac
-            (5, "ac_check", "فحص مكيف", 1), (5, "freon", "تعبئة فريون", 2),
-            (5, "freon_leak", "تهريب فريون", 3), (5, "compressor", "كمبروسر", 4),
-            (5, "ac_clean", "تنظيف مكيف", 5),
-            # brakes
-            (6, "pads_front", "تغيير فحمات أمامية", 1), (6, "pads_rear", "تغيير فحمات خلفية", 2),
-            (6, "rotor_machine", "خرط هوبات", 3), (6, "rotor_replace", "تغيير هوبات", 4),
-            (6, "brake_check", "فحص فرامل", 5), (6, "brake_fluid", "تغيير زيت فرامل", 6),
-        ]
-        c.executemany("INSERT INTO subcategories (category_id,slug,name,sort) VALUES (?,?,?,?)", subs)
+        # sub under mechanics
+        mech = c.execute("SELECT id FROM categories WHERE slug='mechanics'").fetchone()[0]
+        for i, (slug, name) in enumerate([
+            ("engine", "مكينة"), ("gearbox", "قير"), ("diff", "دفرنس"),
+            ("belts", "سيور"), ("mounts", "كراسي مكينة"), ("water_pump", "طرمبة ماء"),
+            ("fuel_pump", "طرمبة بنزين"), ("oil_leak", "تهريب زيوت"),
+            ("engine_check", "فحص مكينة"), ("engine_repair", "إصلاح مكينة"),
+            ("engine_rebuild", "توضيب مكينة"),
+        ], 1):
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                      (mech, slug, name, "", i))
 
-        # service defs under subcategories (map by name lookup after insert)
-        # We'll insert service_defs linked to subcategory ids
-        # Get sub ids
-        sub_map = {r["slug"]: r["id"] for r in c.execute("SELECT id,slug FROM subcategories").fetchall()}
+        brakes = c.execute("SELECT id FROM categories WHERE slug='brakes'").fetchone()[0]
+        for i, (slug, name) in enumerate([
+            ("pads_front", "فحمات أمامية"), ("pads_rear", "فحمات خلفية"),
+            ("rotors", "هوبات"), ("brake_fluid", "زيت فرامل"), ("brake_check", "فحص فرامل"),
+        ], 1):
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                      (brakes, slug, name, "", i))
 
-        defs = [
-            (sub_map["pads_front"], "تغيير فحمات أمامية", "استبدال فحمات الفرامل الأمامية", "فك وتركيب الفحمات · فحص أساسي للنظام", "الهوبات · قطع إضافية · إصلاحات أخرى"),
-            (sub_map["pads_rear"], "تغيير فحمات خلفية", "استبدال فحمات الفرامل الخلفية", "فك وتركيب الفحمات · فحص أساسي", "الهوبات · قطع إضافية"),
-            (sub_map["rotor_machine"], "خرط هوبات", "خرط أسطح الهوبات", "خرط الهوبات · فحص السماكة", "تغيير هوبات · فحمات"),
-            (sub_map["rotor_replace"], "تغيير هوبات", "استبدال هوبات الفرامل", "توريد وتركيب هوبات", "فحمات · زيت فرامل"),
-            (sub_map["brake_check"], "فحص فرامل", "فحص شامل لنظام الفرامل", "فحص الفحمات والهوبات والزيت", "استبدال قطع"),
-            (sub_map["brake_fluid"], "تغيير زيت فرامل", "تفريغ وتعبئة زيت فرامل", "زيت فرامل · تفريغ هواء", "فحمات · هوبات"),
-            (sub_map["engine_check"], "فحص مكينة", "فحص صوت وأداء المكينة", "فحص بصري · قراءة أكواد", "إصلاح · قطع"),
-            (sub_map["oil_leak"], "كشف تهريب زيوت", "تحديد مصدر تهريب الزيت", "فحص وتنظيف وتحديد المصدر", "إصلاح · قطع"),
-            (sub_map["water_pump"], "تغيير مضخة ماء", "استبدال مضخة الماء", "فك وتركيب · فحص السيور", "رديتر · بلف حرارة"),
-            (sub_map["elec_check"], "فحص كهرباء", "فحص النظام الكهربائي", "قياس جهد · فحص فيوزات", "قطع · برمجة"),
-            (sub_map["alternator"], "إصلاح/تغيير دينمو", "صيانة أو استبدال الدينمو", "فحص شحن · فك وتركيب", "بطارية · أسلاك"),
-            (sub_map["starter"], "إصلاح/تغيير سلف", "صيانة أو استبدال السلف", "فحص · فك وتركيب", "بطارية"),
-            (sub_map["ecu"], "فحص كمبيوتر السيارة", "قراءة أكواد وتشخيص", "تقرير أكواد", "برمجة · قطع"),
-            (sub_map["rad_clean"], "تنظيف رديتر", "تنظيف رديتر ونظام التبريد", "تنظيف · تعبئة", "تغيير رديتر"),
-            (sub_map["rad_replace"], "تغيير رديتر", "استبدال الرديتر", "توريد وتركيب · تعبئة", "طرمبة ماء"),
-            (sub_map["cool_check"], "فحص نظام التبريد", "فحص ضغط وتهريب", "فحص ضغط · تقرير", "قطع"),
-            (sub_map["freon"], "تعبئة فريون", "تعبئة غاز المكيف", "فحص ضغط · تعبئة", "كمبروسر · تهريب"),
-            (sub_map["ac_check"], "فحص مكيف", "فحص تبريد المكيف", "قياس تبريد · تقرير", "قطع"),
-            (sub_map["ac_clean"], "تنظيف مكيف", "تنظيف مجاري الهواء", "تنظيف · تعقيم", "فريون"),
-            (sub_map["bodywork"], "سمكرة", "إصلاح صدمات وسمكرة", "سمكرة الجزء المتفق عليه", "رش كامل · قطع جديدة"),
-            (sub_map["paint"], "رش قطعة", "رش قطعة بودي", "جهوزية ورش", "سمكرة إضافية"),
-        ]
-        c.executemany(
-            "INSERT INTO service_defs (subcategory_id,name,description,includes,excludes) VALUES (?,?,?,?,?)",
-            defs
-        )
+        elec = c.execute("SELECT id FROM categories WHERE slug='electrical'").fetchone()[0]
+        for i, (slug, name) in enumerate([
+            ("battery_svc", "بطارية"), ("alternator", "دينمو"), ("starter", "سلف"),
+            ("sensors", "حساسات"), ("wiring", "أسلاك"), ("lights", "إنارة"),
+        ], 1):
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                      (elec, slug, name, "", i))
 
+        cool = c.execute("SELECT id FROM categories WHERE slug='cooling'").fetchone()[0]
+        for i, (slug, name) in enumerate([
+            ("radiator", "رديتر"), ("thermo", "بلف حرارة"), ("fan", "مروحة"), ("cool_check", "فحص تبريد"),
+        ], 1):
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                      (cool, slug, name, "", i))
+
+        ac = c.execute("SELECT id FROM categories WHERE slug='ac'").fetchone()[0]
+        for i, (slug, name) in enumerate([
+            ("freon", "فريون"), ("compressor", "كمبروسر"), ("ac_clean", "تنظيف مكيف"), ("ac_check", "فحص مكيف"),
+        ], 1):
+            c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                      (ac, slug, name, "", i))
+
+        # service defs linked to leaf categories
+        def add_svc(cat_slug, name, desc, inc, exc):
+            row = c.execute("SELECT id FROM categories WHERE slug=?", (cat_slug,)).fetchone()
+            if not row: return
+            c.execute("INSERT INTO service_defs (category_id,name,description,includes,excludes) VALUES (?,?,?,?,?)",
+                      (row[0], name, desc, inc, exc))
+
+        add_svc("pads_front", "تغيير فحمات أمامية", "استبدال فحمات الفرامل الأمامية",
+                "فك وتركيب الفحمات · فحص أساسي للنظام", "الهوبات · قطع إضافية · إصلاحات أخرى")
+        add_svc("pads_rear", "تغيير فحمات خلفية", "استبدال فحمات الفرامل الخلفية",
+                "فك وتركيب · فحص أساسي", "الهوبات · قطع إضافية")
+        add_svc("rotors", "خرط هوبات", "خرط أسطح الهوبات", "خرط زوج · فحص السماكة", "فحمات · استبدال هوبات")
+        add_svc("rotors", "تغيير هوبات", "استبدال هوبات", "توريد وتركيب", "فحمات · زيت فرامل")
+        add_svc("brake_check", "فحص فرامل", "فحص شامل لنظام الفرامل", "فحص الفحمات والهوبات والزيت", "استبدال قطع")
+        add_svc("brake_fluid", "تغيير زيت فرامل", "تفريغ وتعبئة زيت فرامل", "زيت · تفريغ هواء", "فحمات · هوبات")
+        add_svc("engine_check", "فحص مكينة", "فحص صوت وأداء وقراءة أكواد", "فحص بصري · تقرير أكواد", "إصلاح · قطع")
+        add_svc("engine_repair", "إصلاح مكينة", "إصلاح أعطال المكينة حسب التشخيص", "حسب الاتفاق", "توضيب كامل")
+        add_svc("engine_rebuild", "توضيب مكينة", "توضيب كامل للمكينة", "حسب الاتفاق والعقد", "قطع خارج النطاق")
+        add_svc("oil_leak", "كشف تهريب زيوت", "تحديد مصدر التهريب", "فحص وتنظيف وتحديد المصدر", "إصلاح · قطع")
+        add_svc("water_pump", "تغيير طرمبة ماء", "استبدال مضخة الماء", "فك وتركيب · فحص السيور", "رديتر")
+        add_svc("alternator", "إصلاح/تغيير دينمو", "صيانة أو استبدال", "فحص شحن · فك وتركيب", "بطارية")
+        add_svc("starter", "إصلاح/تغيير سلف", "صيانة أو استبدال السلف", "فحص · فك وتركيب", "بطارية")
+        add_svc("radiator", "تغيير رديتر", "استبدال الرديتر", "توريد وتركيب · تعبئة", "طرمبة ماء")
+        add_svc("radiator", "تنظيف رديتر", "تنظيف نظام التبريد", "تنظيف · تعبئة", "تغيير رديتر")
+        add_svc("freon", "تعبئة فريون", "تعبئة غاز المكيف", "فحص ضغط · تعبئة", "كمبروسر · تهريب")
+        add_svc("ac_check", "فحص مكيف", "فحص تبريد", "قياس تبريد · تقرير", "قطع")
+        add_svc("ac_clean", "تنظيف مكيف", "تنظيف وتعقيم مجاري", "تنظيف · تعقيم", "فريون")
+
+        # partners
         partners = [
-            ("ورشة النخبة", "0500000001", "workshop", "صناعية العاصمة", 4.6, 4.8, 127, 1),
-            ("ورشة الإتقان", "0500000002", "workshop", "صناعية العاصمة", 4.4, 4.6, 84, 1),
-            ("ورشة السرعة", "0500000003", "workshop", "صناعية العاصمة", 4.7, 4.9, 210, 1),
-            ("محل قطع المعتمد", "0500000006", "parts", "صناعية العاصمة", 4.5, 4.7, 56, 1),
-            ("محل البطاريات والزيوت", "0500000008", "parts", "صناعية العاصمة", 4.3, 4.5, 40, 1),
+            ("WR-1001", "ورشة النخبة", "0500000001", "workshop", 4.6, 4.8, 127),
+            ("WR-1002", "ورشة الإتقان", "0500000002", "workshop", 4.4, 4.6, 84),
+            ("WR-1003", "ورشة السرعة", "0500000003", "workshop", 4.7, 4.9, 210),
+            ("PR-2001", "محل قطع المعتمد", "0500000006", "parts", 4.5, 4.7, 56),
+            ("BT-3001", "مركز البطاريات", "0500000008", "batteries", 4.3, 4.5, 40),
+            ("OI-4001", "محل الزيوت الذهبي", "0500000009", "oils", 4.4, 4.6, 33),
+            ("TY-5001", "كفرات الرياض", "0500000010", "tires", 4.5, 4.7, 48),
         ]
-        c.executemany(
-            "INSERT INTO partners (name,phone,type,area,google_rating,turbas_rating,jobs_count,warranty_ok) VALUES (?,?,?,?,?,?,?,?)",
-            partners
-        )
+        for code, name, phone, typ, gr, tr, jobs in partners:
+            c.execute("""INSERT INTO partners (code,name,phone,type,area,google_rating,turbas_rating,jobs_count,warranty_ok)
+                         VALUES (?,?,?,?, 'صناعية العاصمة',?,?,?,1)""",
+                      (code, name, phone, typ, gr, tr, jobs))
 
-        # offers: multiple workshops for same services
-        # service_def ids 1-6 brakes etc
-        offers = [
-            # pads front - 3 workshops
-            (1, 1, 350, "45 دقيقة", 180, "فحمات · فك وتركيب · فحص", "هوبات"),
-            (2, 1, 290, "50 دقيقة", 90, "فحمات · فك وتركيب", "هوبات · زيت"),
-            (3, 1, 420, "40 دقيقة", 365, "فحمات سيراميك · فك وتركيب · فحص شامل", "لا شيء إضافي"),
-            # pads rear
-            (1, 2, 320, "45 دقيقة", 180, "فحمات خلفية · تركيب", "هوبات"),
-            (2, 2, 270, "55 دقيقة", 90, "فحمات · تركيب", "هوبات"),
-            (3, 2, 380, "40 دقيقة", 365, "فحمات ممتازة · تركيب وفحص", ""),
-            # rotor machine
-            (1, 3, 200, "60 دقيقة", 30, "خرط زوج هوبات", "فحمات"),
-            (2, 3, 180, "70 دقيقة", 30, "خرط", "فحمات"),
-            # brake check
-            (1, 5, 80, "20 دقيقة", 7, "فحص شامل", "قطع"),
-            (2, 5, 60, "25 دقيقة", 7, "فحص", "قطع"),
-            (3, 5, 100, "15 دقيقة", 14, "فحص وتقرير", "قطع"),
-            # engine check
-            (1, 7, 120, "30 دقيقة", 7, "فحص وصوت وأكواد", "إصلاح"),
-            (3, 7, 150, "25 دقيقة", 14, "فحص متقدم", "إصلاح"),
-            # alternator
-            (1, 11, 450, "ساعتين", 90, "فحص وإصلاح أو تبديل", "بطارية"),
-            (2, 11, 380, "ساعتين", 60, "إصلاح/تبديل", "بطارية"),
-            # radiator replace
-            (1, 15, 550, "3 ساعات", 90, "رديتر · تركيب · تعبئة", "طرمبة"),
-            (2, 15, 480, "3 ساعات", 60, "رديتر · تركيب", "طرمبة"),
-            # freon
-            (1, 17, 250, "45 دقيقة", 30, "فحص وتعبئة", "كمبروسر"),
-            (3, 17, 280, "40 دقيقة", 60, "تعبئة وفحص تهريب", "كمبروسر"),
-            # ac check
-            (2, 18, 90, "20 دقيقة", 7, "فحص تبريد", "قطع"),
-            (3, 18, 110, "20 دقيقة", 14, "فحص وتقرير", "قطع"),
-        ]
-        c.executemany(
-            "INSERT INTO offers (partner_id,service_def_id,price,duration,warranty_days,includes,excludes) VALUES (?,?,?,?,?,?,?)",
-            offers
-        )
+        # offers multi-workshop for key services
+        sd = {r["name"]: r["id"] for r in c.execute("SELECT id,name FROM service_defs").fetchall()}
+        def off(pid, sname, price, dur, war, inc, exc):
+            sid = sd.get(sname)
+            if not sid: return
+            c.execute("""INSERT INTO offers (partner_id,service_def_id,price,duration,warranty_days,includes,excludes)
+                         VALUES (?,?,?,?,?,?,?)""", (pid, sid, price, dur, war, inc, exc))
 
-        products = [
-            (4, "فلاتر", "فلتر زيت تويوتا أصلي", "تويوتا", "أصلي", "90915-YZZD2", 45, "ضمان المحل", "OEM", "تويوتا", "كامري,كورولا", "2018-2024"),
-            (4, "فلاتر", "فلتر هواء هيونداي", "هيونداي", "درجة أولى", "28113-F2000", 55, "ضمان المحل", "", "هيونداي", "النترا,سوناتا", "2016-2024"),
-            (5, "زيوت", "شل هيلكس 5W-30", "شل", "درجة أولى", "SHX530", 85, "ضمان المحل", "4 لتر", "تويوتا,هيونداي", "كامري,النترا", "2015-2024"),
-            (5, "زيوت", "موبيل 1 5W-30", "موبيل", "أصلي", "M1530", 165, "ضمان المحل", "4 لتر كامل", "تويوتا,لكزس", "كامري,ES", "2015-2024"),
-            (5, "بطاريات", "أكوم 70 أمبير", "أكوم", "تجاري", "AC70", 380, "18 شهر", "70A", "تويوتا,نيسان", "كامري,التيما", "2012-2024"),
-            (5, "بطاريات", "بوش S5 90 أمبير", "بوش", "أصلي", "BOSCHS590", 720, "36 شهر", "90A", "شيفروليه,جمس", "تاهو,يوكون", "2015-2024"),
-            (4, "كفرات", "ميشلان Primacy 4 215/60R16", "ميشلان", "أصلي", "PRIM215", 520, "ضمان المصنع", "215/60R16", "تويوتا,هيونداي", "كامري,النترا", "2015-2024"),
-            (4, "كفرات", "بريدجستون 265/65R17", "بريدجستون", "درجة أولى", "BR265", 550, "ضمان المصنع", "265/65R17", "تويوتا,نيسان", "لاندكروزر,باترول", "2010-2024"),
+        off(1, "تغيير فحمات أمامية", 350, "45 دقيقة", 180, "فحمات · فك وتركيب · فحص", "هوبات")
+        off(2, "تغيير فحمات أمامية", 290, "50 دقيقة", 90, "فحمات · فك وتركيب", "هوبات · زيت")
+        off(3, "تغيير فحمات أمامية", 420, "40 دقيقة", 365, "فحمات سيراميك · فحص شامل", "لا شيء إضافي")
+        off(1, "تغيير فحمات خلفية", 320, "45 دقيقة", 180, "فحمات خلفية · تركيب", "هوبات")
+        off(2, "تغيير فحمات خلفية", 270, "55 دقيقة", 90, "فحمات · تركيب", "هوبات")
+        off(3, "تغيير فحمات خلفية", 380, "40 دقيقة", 365, "فحمات ممتازة · فحص", "")
+        off(1, "فحص فرامل", 80, "20 دقيقة", 7, "فحص شامل", "قطع")
+        off(2, "فحص فرامل", 60, "25 دقيقة", 7, "فحص", "قطع")
+        off(3, "فحص فرامل", 100, "15 دقيقة", 14, "فحص وتقرير", "قطع")
+        off(1, "فحص مكينة", 120, "30 دقيقة", 7, "فحص وأكواد", "إصلاح")
+        off(3, "فحص مكينة", 150, "25 دقيقة", 14, "فحص متقدم", "إصلاح")
+        off(1, "تغيير رديتر", 550, "3 ساعات", 90, "رديتر · تركيب · تعبئة", "طرمبة")
+        off(2, "تغيير رديتر", 480, "3 ساعات", 60, "رديتر · تركيب", "طرمبة")
+        off(1, "تعبئة فريون", 250, "45 دقيقة", 30, "فحص وتعبئة", "كمبروسر")
+        off(3, "تعبئة فريون", 280, "40 دقيقة", 60, "تعبئة وفحص تهريب", "كمبروسر")
+        off(1, "إصلاح/تغيير دينمو", 450, "ساعتين", 90, "فحص وإصلاح أو تبديل", "بطارية")
+        off(2, "إصلاح/تغيير دينمو", 380, "ساعتين", 60, "إصلاح/تبديل", "بطارية")
+
+        # products
+        prods = [
+            (4, "parts", "فلتر زيت تويوتا أصلي", "تويوتا", "أصلي", "90915-YZZD2", 45, "ضمان المحل", "", "تويوتا", "كامري,كورولا", "2018-2024"),
+            (4, "parts", "فلتر هواء هيونداي", "هيونداي", "درجة أولى", "28113-F2000", 55, "ضمان المحل", "", "هيونداي", "النترا", "2016-2024"),
+            (6, "oils", "شل هيلكس 5W-30", "شل", "درجة أولى", "SHX530", 85, "ضمان المحل", "5W-30", "تويوتا,هيونداي", "كامري,النترا", "2015-2024"),
+            (6, "oils", "موبيل 1 5W-30", "موبيل", "أصلي", "M1530", 165, "ضمان المحل", "5W-30", "تويوتا,لكزس", "كامري,ES", "2015-2024"),
+            (5, "batteries", "أكوم 70 أمبير", "أكوم", "تجاري", "AC70", 380, "18 شهر", "70A", "تويوتا,نيسان", "كامري,التيما", "2012-2024"),
+            (5, "batteries", "بوش S5 90 أمبير", "بوش", "أصلي", "BOSCHS590", 720, "36 شهر", "90A", "شيفروليه,جمس", "تاهو,سييرا", "2015-2024"),
+            (7, "tires", "ميشلان Primacy 4", "ميشلان", "أصلي", "PRIM215", 520, "ضمان المصنع", "215/60R16", "تويوتا,هيونداي", "كامري,النترا", "2015-2024"),
+            (7, "tires", "بريدجستون دويلر", "بريدجستون", "درجة أولى", "BR265", 550, "ضمان المصنع", "265/65R17", "تويوتا,نيسان,جمس", "لاندكروزر,سييرا", "2010-2024"),
         ]
-        c.executemany(
-            """INSERT INTO products (partner_id,category,name,brand,grade,part_number,price,warranty,meta,brands,models,years)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", products
-        )
+        for pid, kind, name, brand, grade, pnum, price, war, meta, brands, models, years in prods:
+            w = a = r = vis = vol = cca = size = ""
+            if kind == "tires" and "/" in meta:
+                # 215/60R16
+                parts = meta.replace("R", "/").split("/")
+                if len(parts) >= 3:
+                    w, a, r = parts[0], parts[1], parts[2]
+            if kind == "oils":
+                vis = meta; vol = "4 لتر"
+            if kind == "batteries":
+                cca = meta; size = meta
+            c.execute("""INSERT INTO products
+                (partner_id,kind,name,brand,grade,part_number,price,warranty,meta,brands,models,years,
+                 width,aspect,rim,viscosity,volume,cca,size_code,stock,delivery,active)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,10,1,1)""",
+                (pid, kind, name, brand, grade, pnum, price, war, meta, brands, models, years,
+                 w, a, r, vis, vol, cca, size))
+
+        # vehicle catalog
+        brands_data = [
+            ("تويوتا", "Toyota", 1, [
+                ("كامري", "Camry", "2015-2026", "سيدان", "LE,SE,XLE,XSE,Hybrid"),
+                ("كورولا", "Corolla", "2015-2026", "سيدان,هاتشباك", "Base,SE,XLE"),
+                ("لاندكروزر", "Land Cruiser", "2010-2026", "SUV", "GXR,VXR,VX"),
+                ("هايلكس", "Hilux", "2015-2026", "بيك أب غمارة,بيك أب غمارتين", "GLX,Adventure"),
+            ]),
+            ("جمس", "GMC", 2, [
+                ("سييرا", "Sierra", "2019-2026", "بيك أب غمارة,بيك أب غمارتين", "SLE,SLT,AT4,AT4X,Denali"),
+                ("يوكون", "Yukon", "2015-2026", "SUV", "SLE,SLT,AT4,Denali"),
+                ("أكاديا", "Acadia", "2017-2026", "SUV", "SLE,SLT,Denali"),
+            ]),
+            ("نيسان", "Nissan", 3, [
+                ("التيما", "Altima", "2015-2026", "سيدان", "S,SV,SR,SL"),
+                ("باترول", "Patrol", "2010-2026", "SUV", "XE,SE,LE,Platinum"),
+                ("صني", "Sunny", "2015-2026", "سيدان", "S,SV"),
+            ]),
+            ("هيونداي", "Hyundai", 4, [
+                ("النترا", "Elantra", "2016-2026", "سيدان", "Smart,Comfort,Premium"),
+                ("توسان", "Tucson", "2016-2026", "SUV", "Smart,Comfort,Premium"),
+                ("سوناتا", "Sonata", "2015-2026", "سيدان", "Smart,Premium"),
+            ]),
+            ("لكزس", "Lexus", 5, [
+                ("ES", "ES", "2015-2026", "سيدان", "ES250,ES350,ES300h"),
+                ("LX", "LX", "2015-2026", "SUV", "LX570,LX600"),
+                ("RX", "RX", "2015-2026", "SUV", "RX350,RX450h"),
+            ]),
+            ("شيفروليه", "Chevrolet", 6, [
+                ("تاهو", "Tahoe", "2015-2026", "SUV", "LS,LT,RST,Premier,High Country"),
+                ("سلفرادو", "Silverado", "2019-2026", "بيك أب غمارة,بيك أب غمارتين", "WT,LT,RST,LTZ,High Country"),
+            ]),
+            ("فورد", "Ford", 7, [
+                ("اكسبلورر", "Explorer", "2016-2026", "SUV", "Base,XLT,Limited,Platinum"),
+                ("F-150", "F-150", "2015-2026", "بيك أب غمارة,بيك أب غمارتين", "XL,XLT,Lariat,King Ranch,Platinum"),
+            ]),
+            ("كيا", "Kia", 8, [
+                ("سيراتو", "Cerato", "2015-2026", "سيدان", "LX,EX"),
+                ("سبورتاج", "Sportage", "2016-2026", "SUV", "LX,EX,GT-Line"),
+            ]),
+        ]
+        for bname, ben, sort, models in brands_data:
+            c.execute("INSERT INTO vehicle_brands (name,name_en,sort) VALUES (?,?,?)", (bname, ben, sort))
+            bid = c.lastrowid
+            for mname, men, years, bodies, trims in models:
+                c.execute("INSERT INTO vehicle_models (brand_id,name,name_en,years,bodies,trims) VALUES (?,?,?,?,?,?)",
+                          (bid, mname, men, years, bodies, trims))
 
         c.execute("INSERT INTO users (phone,name,created_at) VALUES (?,?,?)",
                   ("0512345678", "عميل تجريبي", now()))
         uid = c.lastrowid
-        c.execute("""INSERT INTO cars (user_id,brand,model,year,trim,color,body,cylinders,fuel,is_default)
-                     VALUES (?,?,?,?,?,?,?,?,?,1)""",
-                  (uid, "تويوتا", "كامري", "2020", "LE", "أبيض", "سيدان", "4", "بنزين"))
+        c.execute("""INSERT INTO cars (user_id,brand,model,year,body,trim,engine,cylinders,fuel,transmission,color,is_default)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,1)""",
+                  (uid, "تويوتا", "كامري", "2020", "سيدان", "LE", "2.5L", "4", "بنزين", "أوتوماتيك", "أبيض"))
+        c.execute("""INSERT INTO cars (user_id,brand,model,year,body,trim,engine,cylinders,fuel,transmission,color,is_default)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,0)""",
+                  (uid, "جمس", "سييرا", "2023", "بيك أب غمارتين", "AT4", "5.3L", "8", "بنزين", "أوتوماتيك", "أسود"))
         c.execute("INSERT INTO points_log (user_id,points,label,created_at) VALUES (?,?,?,?)",
                   (uid, 28, "ترحيب", now()))
 
     conn.commit()
     conn.close()
+
 
 class App(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
@@ -280,6 +366,7 @@ class App(SimpleHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self._cors()
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -300,9 +387,8 @@ class App(SimpleHTTPRequestHandler):
             return self._file(STATIC / "index.html")
         if path in ("/partner", "/partner.html"):
             return self._file(STATIC / "partner.html")
-
         if path == "/api/health":
-            return self._send_json(200, {"ok": True, "service": "turbas", "version": "2.0"})
+            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.0"})
 
         if path == "/api/delivery-zones":
             return self._send_json(200, [
@@ -311,64 +397,57 @@ class App(SimpleHTTPRequestHandler):
                 {"id": "riyadh", "name": "باقي الرياض", "fee": 35},
             ])
 
+        if path == "/api/home":
+            return self._send_json(200, {"main": [
+                {"id": "workshop", "name": "ورش", "icon": "🔧", "desc": "صيانة وإصلاح"},
+                {"id": "parts", "name": "قطع غيار", "icon": "🔩", "desc": "قطع متوافقة"},
+                {"id": "batteries", "name": "بطاريات", "icon": "🔋", "desc": "بطارية وتركيب"},
+                {"id": "oils", "name": "زيوت", "icon": "🛢️", "desc": "زيت وفلتر"},
+                {"id": "tires", "name": "كفرات", "icon": "🛞", "desc": "مقاس وتركيب"},
+            ]})
+
         if path == "/api/categories":
             conn = get_db()
-            data = j(conn.execute("SELECT * FROM categories ORDER BY sort").fetchall())
-            conn.close()
-            return self._send_json(200, data)
-
-        if path == "/api/subcategories":
-            conn = get_db()
-            q = "SELECT * FROM subcategories WHERE 1=1"
-            params = []
-            if "category_id" in qs:
-                q += " AND category_id=?"; params.append(qs["category_id"][0])
-            q += " ORDER BY sort"
-            data = j(conn.execute(q, params).fetchall())
+            parent = qs.get("parent_id", ["0"])[0]
+            scope = qs.get("scope", ["workshop"])[0]
+            data = j(conn.execute(
+                "SELECT * FROM categories WHERE parent_id=? AND scope=? ORDER BY sort",
+                (parent, scope)).fetchall())
             conn.close()
             return self._send_json(200, data)
 
         if path == "/api/services":
-            # service definitions, optional subcategory filter
             conn = get_db()
-            q = """SELECT sd.*, sc.name as subcategory_name, sc.category_id, c.name as category_name, c.slug as category_slug
-                   FROM service_defs sd
-                   JOIN subcategories sc ON sc.id=sd.subcategory_id
-                   JOIN categories c ON c.id=sc.category_id WHERE 1=1"""
+            q = """SELECT sd.*, c.name as category_name, c.parent_id
+                   FROM service_defs sd JOIN categories c ON c.id=sd.category_id WHERE 1=1"""
             params = []
-            if "subcategory_id" in qs:
-                q += " AND sd.subcategory_id=?"; params.append(qs["subcategory_id"][0])
             if "category_id" in qs:
-                q += " AND sc.category_id=?"; params.append(qs["category_id"][0])
+                q += " AND sd.category_id=?"; params.append(qs["category_id"][0])
             q += " ORDER BY sd.sort, sd.id"
             data = j(conn.execute(q, params).fetchall())
             conn.close()
             return self._send_json(200, data)
 
         if path == "/api/offers":
-            # marketplace offers — NO partner name unless reveal
             conn = get_db()
-            q = """SELECT o.id, o.service_def_id, o.price, o.duration, o.warranty_days,
-                          o.includes, o.excludes, o.active,
-                          p.turbas_rating, p.google_rating, p.jobs_count, p.warranty_ok, p.area,
-                          sd.name as service_name, sd.description, sd.includes as def_includes, sd.excludes as def_excludes
-                   FROM offers o
-                   JOIN partners p ON p.id=o.partner_id
-                   JOIN service_defs sd ON sd.id=o.service_def_id
-                   WHERE o.active=1 AND p.active=1"""
-            params = []
-            if "service_def_id" in qs:
-                q += " AND o.service_def_id=?"; params.append(qs["service_def_id"][0])
             if "partner_id" in qs:
-                # partner panel — include name
-                q = """SELECT o.*, p.name as partner_name, sd.name as service_name
-                       FROM offers o JOIN partners p ON p.id=o.partner_id
+                data = j(conn.execute(
+                    """SELECT o.*, sd.name as service_name FROM offers o
                        JOIN service_defs sd ON sd.id=o.service_def_id
-                       WHERE o.partner_id=?"""
-                params = [qs["partner_id"][0]]
-            data = j(conn.execute(q, params).fetchall())
-            # default sort by turbas_rating * log(jobs) value score
-            if "partner_id" not in qs:
+                       WHERE o.partner_id=?""", (qs["partner_id"][0],)).fetchall())
+            else:
+                q = """SELECT o.id, o.service_def_id, o.price, o.duration, o.warranty_days,
+                              o.includes, o.excludes,
+                              p.turbas_rating, p.google_rating, p.jobs_count, p.warranty_ok, p.area,
+                              sd.name as service_name, sd.description, sd.includes as def_includes, sd.excludes as def_excludes
+                       FROM offers o
+                       JOIN partners p ON p.id=o.partner_id
+                       JOIN service_defs sd ON sd.id=o.service_def_id
+                       WHERE o.active=1 AND p.active=1"""
+                params = []
+                if "service_def_id" in qs:
+                    q += " AND o.service_def_id=?"; params.append(qs["service_def_id"][0])
+                data = j(conn.execute(q, params).fetchall())
                 def score(x):
                     return (x.get("turbas_rating") or 0) * 20 + (x.get("jobs_count") or 0) * 0.05 - (x.get("price") or 0) * 0.01
                 data.sort(key=score, reverse=True)
@@ -377,55 +456,72 @@ class App(SimpleHTTPRequestHandler):
 
         if path == "/api/products":
             conn = get_db()
-            q = """SELECT pt.id, pt.partner_id, pt.category, pt.name, pt.brand, pt.grade, pt.part_number,
-                          pt.price, pt.warranty, pt.meta, pt.brands, pt.models, pt.years,
-                          pt.stock, pt.delivery, p.area, p.turbas_rating
-                   FROM products pt JOIN partners p ON p.id=pt.partner_id
-                   WHERE pt.active=1"""
-            params = []
-            if "category" in qs and qs["category"][0] != "الكل":
-                q += " AND pt.category=?"; params.append(qs["category"][0])
             if "partner_id" in qs:
-                q = """SELECT pt.*, p.name as partner_name FROM products pt
-                       JOIN partners p ON p.id=pt.partner_id WHERE pt.partner_id=?"""
-                params = [qs["partner_id"][0]]
-            data = j(conn.execute(q, params).fetchall())
+                data = j(conn.execute("SELECT * FROM products WHERE partner_id=?", (qs["partner_id"][0],)).fetchall())
+            else:
+                q = """SELECT pt.id, pt.partner_id, pt.kind, pt.name, pt.brand, pt.grade, pt.part_number,
+                              pt.price, pt.warranty, pt.meta, pt.brands, pt.models, pt.years,
+                              pt.width, pt.aspect, pt.rim, pt.viscosity, pt.volume, pt.cca, pt.size_code,
+                              pt.stock, pt.delivery, p.area, p.turbas_rating
+                       FROM products pt JOIN partners p ON p.id=pt.partner_id
+                       WHERE pt.active=1"""
+                params = []
+                if "kind" in qs:
+                    q += " AND pt.kind=?"; params.append(qs["kind"][0])
+                if "brand" in qs and qs["brand"][0] not in ("", "الكل"):
+                    q += " AND pt.brand=?"; params.append(qs["brand"][0])
+                if "width" in qs:
+                    q += " AND pt.width=?"; params.append(qs["width"][0])
+                if "aspect" in qs:
+                    q += " AND pt.aspect=?"; params.append(qs["aspect"][0])
+                if "rim" in qs:
+                    q += " AND pt.rim=?"; params.append(qs["rim"][0])
+                data = j(conn.execute(q, params).fetchall())
             conn.close()
             return self._send_json(200, data)
 
-        if path == "/api/partners":
+        if path == "/api/vehicle/brands":
             conn = get_db()
-            # public: limited; with phone login partner sees self
-            if "phone" in qs:
-                row = conn.execute("SELECT * FROM partners WHERE phone=?", (qs["phone"][0],)).fetchone()
-                conn.close()
-                if not row: return self._send_json(404, {"error": "غير مسجل"})
-                return self._send_json(200, dict(row))
-            data = j(conn.execute("SELECT id,type,area,turbas_rating,google_rating,jobs_count FROM partners WHERE active=1").fetchall())
+            data = j(conn.execute("SELECT * FROM vehicle_brands ORDER BY sort, name").fetchall())
             conn.close()
             return self._send_json(200, data)
+
+        if path == "/api/vehicle/models":
+            conn = get_db()
+            bid = qs.get("brand_id", [None])[0]
+            if not bid: return self._send_json(400, {"error": "brand_id"})
+            data = j(conn.execute("SELECT * FROM vehicle_models WHERE brand_id=? ORDER BY name", (bid,)).fetchall())
+            conn.close()
+            return self._send_json(200, data)
+
+        if path == "/api/vehicle/years":
+            # expand years range string
+            years = qs.get("years", [""])[0]
+            out = []
+            if "-" in years:
+                a, b = years.split("-", 1)
+                try:
+                    out = list(range(int(a), int(b) + 1))
+                except: out = []
+            return self._send_json(200, out)
 
         if path == "/api/orders":
             conn = get_db()
-            q = "SELECT o.* FROM orders o WHERE 1=1"
+            q = "SELECT * FROM orders WHERE 1=1"
             params = []
             if "user_id" in qs:
-                q += " AND o.user_id=?"; params.append(qs["user_id"][0])
+                q += " AND user_id=?"; params.append(qs["user_id"][0])
             if "partner_id" in qs:
-                q += " AND o.partner_id=?"; params.append(qs["partner_id"][0])
-            if "status" in qs:
-                q += " AND o.status=?"; params.append(qs["status"][0])
-            q += " ORDER BY o.id DESC"
+                q += " AND partner_id=?"; params.append(qs["partner_id"][0])
+            q += " ORDER BY id DESC"
             rows = j(conn.execute(q, params).fetchall())
-            # reveal name only if paid/reveal
             for r in rows:
-                if r.get("reveal") or r.get("status") in ("paid","confirmed","in_progress","done"):
-                    p = conn.execute("SELECT name,area,phone FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
+                if r.get("reveal") or r.get("status") in ("paid", "confirmed", "in_progress", "done"):
+                    p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
                     if p:
-                        r["partner_name"] = p["name"]
-                        r["partner_area"] = p["area"]
-                        if r.get("reveal"):
-                            r["partner_phone"] = p["phone"]
+                        r["partner_name"] = p["name"]; r["partner_area"] = p["area"]
+                        r["partner_code"] = p["code"]
+                        if r.get("reveal"): r["partner_phone"] = p["phone"]
                 else:
                     r["partner_name"] = "مقدم خدمة"
             conn.close()
@@ -435,16 +531,13 @@ class App(SimpleHTTPRequestHandler):
         if m:
             conn = get_db()
             r = conn.execute("SELECT * FROM orders WHERE id=?", (m.group(1),)).fetchone()
-            if not r:
-                conn.close(); return self._send_json(404, {"error": "not found"})
+            if not r: conn.close(); return self._send_json(404, {"error": "not found"})
             r = dict(r)
-            if r.get("reveal") or r.get("status") in ("paid","confirmed","in_progress","done"):
-                p = conn.execute("SELECT name,area,phone FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
-                if p:
-                    r["partner_name"] = p["name"]; r["partner_area"] = p["area"]
-                    if r.get("reveal"): r["partner_phone"] = p["phone"]
-            addons = j(conn.execute("SELECT * FROM order_addons WHERE order_id=?", (m.group(1),)).fetchall())
-            r["addons"] = addons
+            p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
+            if p and (r.get("reveal") or True):
+                r["partner_name"] = p["name"]; r["partner_area"] = p["area"]; r["partner_code"] = p["code"]
+                if r.get("reveal"): r["partner_phone"] = p["phone"]
+            r["addons"] = j(conn.execute("SELECT * FROM order_addons WHERE order_id=?", (m.group(1),)).fetchall())
             conn.close()
             return self._send_json(200, r)
 
@@ -455,10 +548,35 @@ class App(SimpleHTTPRequestHandler):
             conn.close()
             return self._send_json(200, data)
 
+        if path == "/api/conversations":
+            # list of chats for user or partner
+            conn = get_db()
+            if "user_id" in qs:
+                rows = j(conn.execute("""SELECT o.id as order_id, o.title, o.status_text, o.price, o.car_info, o.created_at,
+                    (SELECT body FROM messages WHERE order_id=o.id ORDER BY id DESC LIMIT 1) as last_msg,
+                    (SELECT created_at FROM messages WHERE order_id=o.id ORDER BY id DESC LIMIT 1) as last_at
+                    FROM orders o WHERE o.user_id=? ORDER BY o.id DESC""", (qs["user_id"][0],)).fetchall())
+            elif "partner_id" in qs:
+                rows = j(conn.execute("""SELECT o.id as order_id, o.title, o.status_text, o.price, o.car_info, o.created_at,
+                    (SELECT body FROM messages WHERE order_id=o.id ORDER BY id DESC LIMIT 1) as last_msg,
+                    (SELECT created_at FROM messages WHERE order_id=o.id ORDER BY id DESC LIMIT 1) as last_at
+                    FROM orders o WHERE o.partner_id=? ORDER BY o.id DESC""", (qs["partner_id"][0],)).fetchall())
+            else:
+                rows = []
+            conn.close()
+            return self._send_json(200, rows)
+
         m = re.match(r"^/api/users/(\d+)/cars$", path)
         if m:
             conn = get_db()
             data = j(conn.execute("SELECT * FROM cars WHERE user_id=? ORDER BY is_default DESC, id", (m.group(1),)).fetchall())
+            conn.close()
+            return self._send_json(200, data)
+
+        m = re.match(r"^/api/cars/(\d+)/history$", path)
+        if m:
+            conn = get_db()
+            data = j(conn.execute("SELECT * FROM service_history WHERE car_id=? ORDER BY id DESC", (m.group(1),)).fetchall())
             conn.close()
             return self._send_json(200, data)
 
@@ -478,17 +596,14 @@ class App(SimpleHTTPRequestHandler):
             orders = j(conn.execute("SELECT * FROM orders WHERE partner_id=?", (pid,)).fetchall())
             sales = sum(o["price"] or 0 for o in orders if o["status"] != "cancelled")
             commission = round(sales * 0.15, 2)
-            stats = {
-                "new": sum(1 for o in orders if o["status"] in ("paid","new")),
+            conn.close()
+            return self._send_json(200, {
+                "new": sum(1 for o in orders if o["status"] in ("paid", "new")),
                 "confirmed": sum(1 for o in orders if o["status"] == "confirmed"),
                 "in_progress": sum(1 for o in orders if o["status"] == "in_progress"),
                 "done": sum(1 for o in orders if o["status"] == "done"),
-                "sales": sales,
-                "commission": commission,
-                "net": round(sales - commission, 2),
-            }
-            conn.close()
-            return self._send_json(200, stats)
+                "sales": sales, "commission": commission, "net": round(sales - commission, 2),
+            })
 
         f = STATIC / path.lstrip("/")
         if f.is_file():
@@ -524,11 +639,12 @@ class App(SimpleHTTPRequestHandler):
             conn = get_db()
             if data.get("is_default"):
                 conn.execute("UPDATE cars SET is_default=0 WHERE user_id=?", (data["user_id"],))
-            conn.execute("""INSERT INTO cars (user_id,brand,model,year,trim,color,body,cylinders,fuel,is_default)
-                            VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            conn.execute("""INSERT INTO cars (user_id,brand,model,year,body,trim,engine,cylinders,fuel,transmission,color,is_default)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                          (data["user_id"], data.get("brand"), data.get("model"), data.get("year"),
-                          data.get("trim"), data.get("color"), data.get("body"), data.get("cylinders"),
-                          data.get("fuel"), 1 if data.get("is_default") else 0))
+                          data.get("body"), data.get("trim"), data.get("engine"), data.get("cylinders"),
+                          data.get("fuel"), data.get("transmission"), data.get("color"),
+                          1 if data.get("is_default") else 0))
             conn.commit()
             cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             conn.close()
@@ -549,20 +665,22 @@ class App(SimpleHTTPRequestHandler):
         if path == "/api/products":
             conn = get_db()
             conn.execute("""INSERT INTO products
-                (partner_id,category,name,brand,grade,part_number,price,warranty,meta,brands,models,years,stock,delivery,active)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
-                (data["partner_id"], data.get("category") or "فلاتر", data.get("name"),
+                (partner_id,kind,name,brand,grade,part_number,price,warranty,meta,brands,models,years,
+                 width,aspect,rim,viscosity,volume,cca,size_code,stock,delivery,active)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
+                (data["partner_id"], data.get("kind") or "parts", data.get("name"),
                  data.get("brand") or "", data.get("grade") or "تجاري", data.get("part_number") or "",
                  data.get("price", 0), data.get("warranty") or "", data.get("meta") or "",
                  data.get("brands") or "", data.get("models") or "", data.get("years") or "",
-                 data.get("stock", 10), 1 if data.get("delivery", True) else 0))
+                 data.get("width") or "", data.get("aspect") or "", data.get("rim") or "",
+                 data.get("viscosity") or "", data.get("volume") or "", data.get("cca") or "",
+                 data.get("size_code") or "", data.get("stock", 10), 1 if data.get("delivery", True) else 0))
             conn.commit()
             pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             conn.close()
             return self._send_json(201, {"id": pid})
 
         if path == "/api/orders":
-            # create order = "payment" in prototype → reveal partner
             conn = get_db()
             partner_id = data.get("partner_id")
             offer_id = data.get("offer_id")
@@ -571,7 +689,8 @@ class App(SimpleHTTPRequestHandler):
                 if off:
                     partner_id = off["partner_id"]
                     data.setdefault("price", off["price"])
-                    data.setdefault("title", conn.execute("SELECT name FROM service_defs WHERE id=?", (off["service_def_id"],)).fetchone()["name"])
+                    nm = conn.execute("SELECT name FROM service_defs WHERE id=?", (off["service_def_id"],)).fetchone()
+                    if nm: data.setdefault("title", nm["name"])
             if data.get("product_id") and not partner_id:
                 pr = conn.execute("SELECT * FROM products WHERE id=?", (data["product_id"],)).fetchone()
                 if pr:
@@ -592,27 +711,33 @@ class App(SimpleHTTPRequestHandler):
                 conn.execute("INSERT INTO points_log (user_id,points,label,created_at) VALUES (?,?,?,?)",
                              (data["user_id"], pts, "طلب #%s" % oid, now()))
                 conn.commit()
-            # bump jobs
             if partner_id:
                 conn.execute("UPDATE partners SET jobs_count=jobs_count+1 WHERE id=?", (partner_id,))
                 conn.commit()
-            p = conn.execute("SELECT name,area,phone FROM partners WHERE id=?", (partner_id,)).fetchone()
+            # service history if car_id provided
+            if data.get("car_id"):
+                p = conn.execute("SELECT name FROM partners WHERE id=?", (partner_id,)).fetchone()
+                conn.execute("""INSERT INTO service_history (car_id,order_id,title,price,partner_name,done_at,notes)
+                                VALUES (?,?,?,?,?,?,?)""",
+                             (data["car_id"], oid, data.get("title"), data.get("price", 0),
+                              p["name"] if p else "", now(), "طلب جديد"))
+                conn.commit()
+            p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (partner_id,)).fetchone()
             conn.close()
             return self._send_json(201, {
                 "id": oid, "points_earned": pts,
                 "partner_name": p["name"] if p else None,
                 "partner_area": p["area"] if p else None,
                 "partner_phone": p["phone"] if p else None,
+                "partner_code": p["code"] if p else None,
             })
 
         m = re.match(r"^/api/orders/(\d+)/status$", path)
         if m:
             oid = m.group(1)
             st = data.get("status") or "confirmed"
-            text_map = {
-                "paid": "تم الدفع", "confirmed": "مؤكد", "in_progress": "قيد التنفيذ",
-                "done": "مكتمل", "cancelled": "ملغي",
-            }
+            text_map = {"paid": "تم الدفع", "confirmed": "مؤكد", "in_progress": "قيد التنفيذ",
+                        "done": "مكتمل", "cancelled": "ملغي"}
             text = data.get("status_text") or text_map.get(st, st)
             conn = get_db()
             conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1 WHERE id=?", (st, text, oid))
@@ -621,11 +746,10 @@ class App(SimpleHTTPRequestHandler):
 
         m = re.match(r"^/api/orders/(\d+)/addons$", path)
         if m:
-            oid = m.group(1)
             conn = get_db()
             conn.execute("""INSERT INTO order_addons (order_id,title,price,reason,status,created_at)
                             VALUES (?,?,?,?,'pending',?)""",
-                         (oid, data.get("title"), data.get("price", 0), data.get("reason") or "", now()))
+                         (m.group(1), data.get("title"), data.get("price", 0), data.get("reason") or "", now()))
             conn.commit()
             aid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             conn.close()
@@ -634,14 +758,12 @@ class App(SimpleHTTPRequestHandler):
         m = re.match(r"^/api/orders/(\d+)/addons/(\d+)$", path)
         if m:
             oid, aid = m.group(1), m.group(2)
-            action = data.get("action")  # accept / reject
+            action = data.get("action")
             conn = get_db()
             if action == "accept":
                 ad = conn.execute("SELECT * FROM order_addons WHERE id=?", (aid,)).fetchone()
                 conn.execute("UPDATE order_addons SET status='accepted' WHERE id=?", (aid,))
-                if ad:
-                    conn.execute("UPDATE orders SET price=price+? WHERE id=?", (ad["price"], oid))
-                    # commission already on total conceptually
+                if ad: conn.execute("UPDATE orders SET price=price+? WHERE id=?", (ad["price"], oid))
                 conn.commit()
             else:
                 conn.execute("UPDATE order_addons SET status='rejected' WHERE id=?", (aid,))
@@ -651,10 +773,10 @@ class App(SimpleHTTPRequestHandler):
 
         m = re.match(r"^/api/orders/(\d+)/messages$", path)
         if m:
-            oid = m.group(1)
             conn = get_db()
-            conn.execute("INSERT INTO messages (order_id,sender,body,created_at) VALUES (?,?,?,?)",
-                         (oid, data.get("sender", "customer"), data.get("body", ""), now()))
+            conn.execute("INSERT INTO messages (order_id,sender,body,msg_type,created_at) VALUES (?,?,?,?,?)",
+                         (m.group(1), data.get("sender", "customer"), data.get("body", ""),
+                          data.get("msg_type", "text"), now()))
             conn.commit()
             mid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             conn.close()
@@ -703,5 +825,5 @@ class App(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     init_db()
-    print("ترباس v2 → http://0.0.0.0:%d" % PORT)
+    print("ترباس v3 → http://0.0.0.0:%d" % PORT)
     HTTPServer((HOST, PORT), App).serve_forever()
