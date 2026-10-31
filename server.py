@@ -101,9 +101,13 @@ def init_db():
         user_id INTEGER, partner_id INTEGER, offer_id INTEGER,
         product_id INTEGER, title TEXT, type TEXT DEFAULT 'service',
         price REAL, delivery_fee REAL DEFAULT 0,
-        status TEXT DEFAULT 'paid', status_text TEXT DEFAULT 'تم الدفع',
+        labor_price REAL DEFAULT 0, parts_price REAL DEFAULT 0,
+        status TEXT DEFAULT 'pending_confirm', status_text TEXT DEFAULT 'بانتظار التأكيد',
         car_info TEXT, zone TEXT, vin TEXT, reveal INTEGER DEFAULT 1,
-        created_at TEXT
+        preferred_time TEXT DEFAULT '', appointment_at TEXT DEFAULT '',
+        cancel_reason TEXT DEFAULT '', cancelled_by TEXT DEFAULT '',
+        payment_status TEXT DEFAULT 'offline_pending',
+        created_at TEXT, updated_at TEXT
     );
     CREATE TABLE IF NOT EXISTS order_addons (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -403,11 +407,36 @@ def init_db():
     # Ensure catalog expansions exist even on old DBs
     try:
         ensure_catalog(conn)
+        migrate_columns(conn)
         conn.commit()
     except Exception as e:
-        print("ensure_catalog:", e)
+        print("ensure_catalog/migrate:", e)
     conn.close()
 
+
+def migrate_columns(conn):
+    """Add new columns on existing DBs safely."""
+    c = conn.cursor()
+    cols = {r[1] for r in c.execute("PRAGMA table_info(orders)").fetchall()}
+    alters = [
+        ("labor_price", "REAL DEFAULT 0"),
+        ("parts_price", "REAL DEFAULT 0"),
+        ("preferred_time", "TEXT DEFAULT ''"),
+        ("appointment_at", "TEXT DEFAULT ''"),
+        ("cancel_reason", "TEXT DEFAULT ''"),
+        ("cancelled_by", "TEXT DEFAULT ''"),
+        ("payment_status", "TEXT DEFAULT 'offline_pending'"),
+        ("updated_at", "TEXT DEFAULT ''"),
+    ]
+    for col, typ in alters:
+        if col not in cols:
+            try:
+                c.execute(f"ALTER TABLE orders ADD COLUMN {col} {typ}")
+            except Exception as e:
+                print("migrate", col, e)
+    # normalize legacy statuses
+    c.execute("UPDATE orders SET status='pending_confirm', status_text='بانتظار التأكيد' WHERE status IN ('paid','new')")
+    c.execute("UPDATE orders SET labor_price=price WHERE (labor_price IS NULL OR labor_price=0) AND price>0")
 
 def ensure_catalog(conn):
     """Add missing services/offers without wiping existing data."""
@@ -505,8 +534,10 @@ class App(SimpleHTTPRequestHandler):
             return self._file(STATIC / "index.html")
         if path in ("/partner", "/partner.html"):
             return self._file(STATIC / "partner.html")
+        if path in ("/admin", "/admin.html"):
+            return self._file(STATIC / "admin.html")
         if path == "/api/health":
-            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.1"})
+            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.2"})
 
         if path == "/robots.txt":
             body = b"User-agent: *\nAllow: /\nDisallow: /partner\nDisallow: /api/\nSitemap: https://turbas.onrender.com/sitemap.xml\n"
@@ -751,12 +782,38 @@ class App(SimpleHTTPRequestHandler):
             commission = round(sales * 0.15, 2)
             conn.close()
             return self._send_json(200, {
-                "new": sum(1 for o in orders if o["status"] in ("paid", "new")),
+                "new": sum(1 for o in orders if o["status"] in ("paid", "new", "pending_confirm")),
                 "confirmed": sum(1 for o in orders if o["status"] == "confirmed"),
                 "in_progress": sum(1 for o in orders if o["status"] == "in_progress"),
                 "done": sum(1 for o in orders if o["status"] == "done"),
                 "sales": sales, "commission": commission, "net": round(sales - commission, 2),
             })
+
+
+        if path == "/api/admin/orders":
+            key = self.headers.get("X-Admin-Key") or qs.get("key", [None])[0]
+            expected = os.environ.get("TURBAS_ADMIN_KEY", "turbas-admin-dev")
+            if key != expected:
+                return self._send_json(403, {"error": "غير مصرح"})
+            conn = get_db()
+            rows = j(conn.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 100").fetchall())
+            conn.close()
+            return self._send_json(200, rows)
+
+        if path == "/api/admin/stats":
+            key = self.headers.get("X-Admin-Key") or qs.get("key", [None])[0]
+            expected = os.environ.get("TURBAS_ADMIN_KEY", "turbas-admin-dev")
+            if key != expected:
+                return self._send_json(403, {"error": "غير مصرح"})
+            conn = get_db()
+            total = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
+            done = conn.execute("SELECT COUNT(*) FROM orders WHERE status='done'").fetchone()[0]
+            cancelled = conn.execute("SELECT COUNT(*) FROM orders WHERE status='cancelled'").fetchone()[0]
+            sales = conn.execute("SELECT COALESCE(SUM(price),0) FROM orders WHERE status!='cancelled'").fetchone()[0]
+            partners = conn.execute("SELECT COUNT(*) FROM partners WHERE active=1").fetchone()[0]
+            conn.close()
+            return self._send_json(200, {"orders": total, "done": done, "cancelled": cancelled,
+                                         "sales": sales, "partners": partners, "commission_rate": 0.15})
 
         f = STATIC / path.lstrip("/")
         if f.is_file():
@@ -850,13 +907,21 @@ class App(SimpleHTTPRequestHandler):
                     partner_id = pr["partner_id"]
                     data.setdefault("price", pr["price"])
                     data.setdefault("title", pr["name"])
+            labor = float(data.get("labor_price") if data.get("labor_price") is not None else data.get("price") or 0)
+            parts = float(data.get("parts_price") or 0)
+            total = labor + parts + float(data.get("delivery_fee") or 0)
             conn.execute("""INSERT INTO orders
-                (user_id,partner_id,offer_id,product_id,title,type,price,delivery_fee,status,status_text,car_info,zone,vin,reveal,created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+                (user_id,partner_id,offer_id,product_id,title,type,price,delivery_fee,labor_price,parts_price,
+                 status,status_text,car_info,zone,vin,reveal,preferred_time,appointment_at,
+                 payment_status,created_at,updated_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?)""",
                 (data.get("user_id"), partner_id, offer_id, data.get("product_id"),
-                 data.get("title"), data.get("type", "service"), data.get("price", 0),
-                 data.get("delivery_fee", 0), "paid", "تم الدفع",
-                 data.get("car_info"), data.get("zone"), data.get("vin"), now()))
+                 data.get("title"), data.get("type", "service"), total,
+                 data.get("delivery_fee", 0), labor, parts,
+                 "pending_confirm", "بانتظار التأكيد",
+                 data.get("car_info"), data.get("zone"), data.get("vin"),
+                 data.get("preferred_time") or "", "",
+                 "offline_pending", now(), now()))
             conn.commit()
             oid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             pts = int((data.get("price") or 0) // 10)
@@ -889,13 +954,76 @@ class App(SimpleHTTPRequestHandler):
         if m:
             oid = m.group(1)
             st = data.get("status") or "confirmed"
-            text_map = {"paid": "تم الدفع", "confirmed": "مؤكد", "in_progress": "قيد التنفيذ",
-                        "done": "مكتمل", "cancelled": "ملغي"}
+            text_map = {
+                "pending_confirm": "بانتظار التأكيد",
+                "paid": "بانتظار التأكيد",
+                "new": "بانتظار التأكيد",
+                "confirmed": "مؤكد",
+                "scheduled": "موعد محدد",
+                "in_progress": "قيد التنفيذ",
+                "done": "مكتمل",
+                "cancelled": "ملغي",
+                "refund_pending": "بانتظار الاسترداد",
+            }
             text = data.get("status_text") or text_map.get(st, st)
             conn = get_db()
-            conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1 WHERE id=?", (st, text, oid))
+            row = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+            if not row:
+                conn.close(); return self._send_json(404, {"error": "الطلب غير موجود"})
+            # basic permission: partner_id or user_id if provided
+            if data.get("partner_id") and int(data["partner_id"]) != int(row["partner_id"] or 0):
+                conn.close(); return self._send_json(403, {"error": "غير مصرح"})
+            if data.get("user_id") and int(data["user_id"]) != int(row["user_id"] or 0):
+                conn.close(); return self._send_json(403, {"error": "غير مصرح"})
+            appt = data.get("appointment_at")
+            if appt:
+                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1, appointment_at=?, updated_at=? WHERE id=?",
+                             (st, text, appt, now(), oid))
+            else:
+                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1, updated_at=? WHERE id=?",
+                             (st, text, now(), oid))
             conn.commit(); conn.close()
             return self._send_json(200, {"ok": True, "status": st, "status_text": text})
+
+        m = re.match(r"^/api/orders/(\d+)/cancel$", path)
+        if m:
+            oid = m.group(1)
+            conn = get_db()
+            row = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+            if not row:
+                conn.close(); return self._send_json(404, {"error": "الطلب غير موجود"})
+            row = dict(row)
+            st = row.get("status") or ""
+            if st in ("done", "cancelled"):
+                conn.close(); return self._send_json(400, {"error": "لا يمكن إلغاء هذا الطلب"})
+            if st == "in_progress" and data.get("by") == "customer":
+                conn.close(); return self._send_json(400, {"error": "العمل جارٍ — تواصل مع الورشة عبر المحادثة"})
+            reason = (data.get("reason") or "").strip() or "بدون سبب"
+            by = data.get("by") or "customer"
+            # points reversal note: no auto reverse in prototype; payment offline
+            conn.execute("""UPDATE orders SET status='cancelled', status_text='ملغي',
+                            cancel_reason=?, cancelled_by=?, updated_at=? WHERE id=?""",
+                         (reason, by, now(), oid))
+            conn.commit(); conn.close()
+            return self._send_json(200, {"ok": True, "status": "cancelled", "status_text": "ملغي",
+                                         "note": "الاسترداد المالي يُعالج يدوياً حتى تفعيل الدفع الإلكتروني"})
+
+        m = re.match(r"^/api/orders/(\d+)/appointment$", path)
+        if m:
+            oid = m.group(1)
+            appt = (data.get("appointment_at") or "").strip()
+            if not appt:
+                return self._send_json(400, {"error": "حدد الموعد"})
+            conn = get_db()
+            row = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+            if not row:
+                conn.close(); return self._send_json(404, {"error": "غير موجود"})
+            if data.get("partner_id") and int(data["partner_id"]) != int(row["partner_id"] or 0):
+                conn.close(); return self._send_json(403, {"error": "غير مصرح"})
+            conn.execute("""UPDATE orders SET appointment_at=?, status='scheduled', status_text='موعد محدد',
+                            reveal=1, updated_at=? WHERE id=?""", (appt, now(), oid))
+            conn.commit(); conn.close()
+            return self._send_json(200, {"ok": True, "appointment_at": appt, "status": "scheduled"})
 
         m = re.match(r"^/api/orders/(\d+)/addons$", path)
         if m:
@@ -978,5 +1106,5 @@ class App(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     init_db()
-    print("ترباس v3 → http://0.0.0.0:%d" % PORT)
+    print("ترباس v3.2 → http://0.0.0.0:%d" % PORT)
     HTTPServer((HOST, PORT), App).serve_forever()

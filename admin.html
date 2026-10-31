@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ترباس إدارة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1A1D21;color:#F2F0EA;font-family:Cairo,sans-serif;padding:16px;max-width:720px;margin-inline:auto}
+.card{background:#252A30;border:1px solid #353B42;border-radius:12px;padding:14px;margin-bottom:10px}
+.btn{background:#E8A33D;color:#1a1a1a;border:none;padding:12px;border-radius:10px;font-weight:800;width:100%;font-family:Cairo}
+.field{width:100%;background:#252A30;border:1.5px solid #353B42;border-radius:10px;padding:12px;color:#F2F0EA;font-family:Cairo;margin-bottom:10px;box-sizing:border-box}
+.dim{color:#9AA0A6;font-size:12px}.amber{color:#E8A33D;font-weight:800}
+.row{display:flex;justify-content:space-between;gap:8px}
+.stat{flex:1;text-align:center;background:#252A30;border:1px solid #353B42;border-radius:10px;padding:12px}
+.stat b{display:block;font-size:18px;color:#E8A33D}
+</style>
+</head>
+<body>
+<h1>ترباس · إدارة</h1>
+<p class="dim">للمالك فقط · لا تعرض هذا الرابط للعملاء</p>
+<input class="field" id="key" placeholder="مفتاح الإدارة" type="password">
+<button class="btn" onclick="load()">دخول</button>
+<div id="stats" style="display:flex;gap:8px;margin:14px 0"></div>
+<div id="list"></div>
+<script>
+const API='';
+async function load(){
+  const key=document.getElementById('key').value.trim();
+  try{
+    const st=await fetch(API+'/api/admin/stats',{headers:{'X-Admin-Key':key}}).then(r=>r.json());
+    if(st.error) throw new Error(st.error);
+    document.getElementById('stats').innerHTML=`
+      <div class="stat"><b>${st.orders}</b><span class="dim">طلبات</span></div>
+      <div class="stat"><b>${st.done}</b><span class="dim">مكتمل</span></div>
+      <div class="stat"><b>${st.cancelled}</b><span class="dim">ملغي</span></div>
+      <div class="stat"><b>${st.sales}</b><span class="dim">مبيعات</span></div>`;
+    const orders=await fetch(API+'/api/admin/orders',{headers:{'X-Admin-Key':key}}).then(r=>r.json());
+    document.getElementById('list').innerHTML=(orders||[]).map(o=>`
+      <div class="card">
+        <div class="row"><b>#${o.id} ${o.title||''}</b><span class="amber">${o.status_text||o.status}</span></div>
+        <div class="dim" style="margin-top:6px">${o.car_info||''} · ${o.price||0} ر.س</div>
+        <div class="dim">${(o.created_at||'').slice(0,16)} ${o.appointment_at?('· موعد '+o.appointment_at):''}</div>
+      </div>`).join('')||'<p class="dim">لا طلبات</p>';
+  }catch(e){alert(e.message)}
+}
+</script>
+</body>
+</html>

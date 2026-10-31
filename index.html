@@ -188,15 +188,18 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="inc">✔ الإلغاء: تواصل عبر محادثة الطلب قبل بدء التنفيذ</div>
     <div class="inc">✔ الدفع الإلكتروني يُفعّل لاحقاً — التأكيد يحجز الطلب الآن</div>
   </div>
+  <div class="section">الموعد المفضّل (اختياري)</div>
+  <input class="field" id="ckTime" type="datetime-local">
+  <p class="dim" style="margin-top:-6px;margin-bottom:10px">الورشة تؤكد أو تقترح موعداً آخر</p>
   <button class="btn" onclick="payOffer()">تأكيد الطلب</button>
-  <p class="dim" style="text-align:center;margin-top:8px">لا رسوم إضافية مخفية في هذه الخطوة</p>
+  <p class="dim" style="text-align:center;margin-top:8px">لا دفع إلكتروني الآن — التأكيد يحجز الطلب للمتابعة مع الورشة</p>
 </div>
 
 <!-- SUCCESS -->
 <div class="screen" id="s-success">
   <div style="text-align:center;padding:24px 0">
     <div style="font-size:48px">✅</div>
-    <h1 style="margin-top:12px">تم تأكيد طلبك</h1>
+    <h1 style="margin-top:12px">تم استلام طلبك</h1>
     <p class="dim">طلب #<span id="sucId"></span></p>
   </div>
   <div class="card">
@@ -257,6 +260,7 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
     <div class="chip" data-t="paid" onclick="ordTab(this)">جديدة</div>
     <div class="chip" data-t="in_progress" onclick="ordTab(this)">جارية</div>
     <div class="chip" data-t="done" onclick="ordTab(this)">مكتملة</div>
+    <div class="chip" data-t="cancelled" onclick="ordTab(this)">ملغاة</div>
   </div>
   <div id="ordersList"></div>
 </div>
@@ -325,7 +329,7 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
 </div>
 <script>
 const API='';
-const STEPS=['تم الدفع','مؤكد','قيد التنفيذ','مكتمل'];
+const STEPS=['بانتظار التأكيد','مؤكد','موعد محدد','قيد التنفيذ','مكتمل'];
 let user=null, car=null, zones=[], myCars=[];
 let curMain=null, curCat=null, curSub=null, curSvc=null, offers=[], sortMode='best', curOffer=null;
 let curProd=null, zoneFee=0, zoneName='', chatOrderId=null, ordFilter='all';
@@ -344,7 +348,8 @@ function go(id){
   window.scrollTo(0,0);
   document.querySelectorAll('.nav-i').forEach(i=>i.classList.toggle('on',i.dataset.s===id));
 }
-function carText(c){if(!c)return '—'; return `${c.brand} ${c.model} ${c.year||''}${c.trim?' · '+c.trim:''}`}
+function dash(v){return (v===null||v===undefined||v==='')?'—':v}
+function carText(c){if(!c)return '—'; return `${c.brand||''} ${c.model||''} ${c.year||''}${c.trim?' · '+c.trim:''}`.trim()||'—'}
 
 async function boot(){
   const ov=document.getElementById('bootOverlay');
@@ -358,7 +363,11 @@ async function boot(){
       api('/api/delivery-zones'),
       api('/api/popular-services').catch(()=>[])
     ]);
-    myCars=cars; car=cars.find(x=>x.is_default)||cars[0]||null; zones=z;
+    myCars=cars; car=cars.find(x=>x.is_default)||cars[0]||null;
+    try{ const saved=JSON.parse(localStorage.getItem('turbas_car')||'null');
+      if(saved && cars.some(c=>c.id===saved.id)) car=cars.find(c=>c.id===saved.id);
+    }catch(e){}
+    zones=z;
     renderCar(); renderPoints(pts);
     document.getElementById('mainCats').innerHTML=home.main.map(m=>`
       <div class="main-cat" onclick="openMain('${m.id}')">
@@ -385,7 +394,15 @@ async function boot(){
 }
 function renderCar(){
   document.getElementById('carLabel').textContent=car?carText(car):'أضف سيارتك';
-  document.getElementById('carSub').textContent=car?`${car.cylinders||''} سلندر · ${car.fuel||''}${car.body?' · '+car.body:''}`:'للتوافق الدقيق';
+  const bits=[];
+  if(car){
+    if(car.cylinders) bits.push(car.cylinders+' سلندر');
+    if(car.fuel) bits.push(car.fuel);
+    if(car.body) bits.push(car.body);
+    if(car.trim) bits.push(car.trim);
+  }
+  document.getElementById('carSub').textContent=bits.length?bits.join(' · '):'للتوافق الدقيق';
+  try{ if(car) localStorage.setItem('turbas_car', JSON.stringify(car)); }catch(e){}
 }
 function renderPoints(pts){
   document.getElementById('ptsHome').textContent=pts.total+' نقطة';
@@ -496,9 +513,11 @@ function openCheckout(oid){
 }
 async function payOffer(){
   try{
+    const pref=(document.getElementById('ckTime')&&document.getElementById('ckTime').value)||'';
     const res=await api('/api/orders',{method:'POST',body:{
       user_id:user.id, offer_id:curOffer.id, title:curOffer.service_name||curSvc?.name,
-      type:'service', price:curOffer.price, car_info:carText(car), car_id:car?.id
+      type:'service', price:curOffer.price, labor_price:curOffer.price, parts_price:0,
+      car_info:carText(car), car_id:car?.id, preferred_time:pref
     }});
     chatOrderId=res.id;
     document.getElementById('sucId').textContent=res.id;
@@ -507,7 +526,7 @@ async function payOffer(){
     document.getElementById('sucPhone').textContent=res.partner_phone?('تواصل: '+res.partner_phone):'عبر محادثة الطلب';
     document.getElementById('sucTitle').textContent=curOffer.service_name||curSvc?.name;
     document.getElementById('sucPrice').textContent=curOffer.price+' ر.س';
-    toast('تم · +'+(res.points_earned||0)+' نقطة');
+    toast('تم استلام الطلب · +'+(res.points_earned||0)+' نقطة');
     go('s-success');
   }catch(e){toast(e.message)}
 }
@@ -751,20 +770,53 @@ async function openOrder(id){
   document.getElementById('odPrice').textContent=o.price+' ر.س';
   document.getElementById('odPartner').textContent=(o.partner_name||'')+(o.partner_area?' · '+o.partner_area:'');
   let step=1;
-  if(o.status==='confirmed') step=2;
-  if(o.status==='in_progress') step=3;
-  if(o.status==='done') step=4;
+  const st=o.status||'';
+  if(st==='confirmed') step=2;
+  if(st==='scheduled') step=3;
+  if(st==='in_progress') step=4;
+  if(st==='done') step=5;
+  if(st==='cancelled'){
+    document.getElementById('odSteps').innerHTML='<div class="empty" style="padding:12px">الطلب ملغي</div>';
+  } else {
   document.getElementById('odSteps').innerHTML=STEPS.map((l,i)=>`
     <div class="step ${i+1<step?'done':i+1===step?'on':''}"><div class="dot">${i+1<step?'✓':i+1}</div><div class="lbl">${l}</div></div>`).join('');
+  }
   const ads=o.addons||[];
-  document.getElementById('odAddons').innerHTML=ads.length?'<div class="section">خدمات إضافية</div>'+ads.map(a=>`
+  const labor=o.labor_price||o.price||0;
+  const parts=o.parts_price||0;
+  let priceBreak='أجرة عمل: '+labor+' ر.س';
+  if(parts) priceBreak+=' · قطع: '+parts+' ر.س';
+  if(o.delivery_fee) priceBreak+=' · توصيل: '+o.delivery_fee+' ر.س';
+  const appt=o.appointment_at||o.preferred_time||'';
+  let extra='<div class="card"><div class="dim">'+priceBreak+'</div>';
+  if(appt) extra+='<div class="dim" style="margin-top:6px">الموعد: '+String(appt).replace('T',' ')+'</div>';
+  if(o.payment_status==='offline_pending') extra+='<div class="dim" style="margin-top:4px">الدفع: متابعة مع الورشة (غير إلكتروني حالياً)</div>';
+  if(o.cancel_reason) extra+='<div class="dim" style="margin-top:4px">سبب الإلغاء: '+o.cancel_reason+'</div>';
+  extra+='</div>';
+  if(ads.length){
+    extra+='<div class="section">خدمات إضافية</div>'+ads.map(a=>`
     <div class="card"><div class="row"><b>${a.title}</b><span class="amber">${a.price} ر.س</span></div>
     <div class="dim">${a.reason||''} · ${a.status}</div>
     ${a.status==='pending'?`<div class="row" style="margin-top:10px;gap:8px">
-      <button class="btn btn-sm" onclick="addonAct(${a.id},'accept')">قبول ودفع</button>
+      <button class="btn btn-sm" onclick="addonAct(${a.id},'accept')">قبول</button>
       <button class="btn btn-sm btn-ghost" onclick="addonAct(${a.id},'reject')">رفض</button></div>`:''}
-    </div>`).join(''):'';
+    </div>`).join('');
+  }
+  if(o.status!=='done'&&o.status!=='cancelled'){
+    extra+='<button class="btn btn-ghost" style="margin-top:8px;border-color:#e57373;color:#e57373" onclick="cancelOrder()">إلغاء الطلب</button>';
+  }
+  document.getElementById('odAddons').innerHTML=extra;
   go('s-order');
+}
+async function cancelOrder(){
+  if(!chatOrderId) return;
+  const reason=prompt('سبب الإلغاء (اختياري):');
+  if(reason===null) return;
+  try{
+    await api('/api/orders/'+chatOrderId+'/cancel',{method:'POST',body:{by:'customer',reason:reason||'',user_id:user.id}});
+    toast('تم إلغاء الطلب');
+    openOrder(chatOrderId);
+  }catch(e){toast(e.message)}
 }
 async function addonAct(aid,action){
   await api('/api/orders/'+chatOrderId+'/addons/'+aid,{method:'POST',body:{action}});

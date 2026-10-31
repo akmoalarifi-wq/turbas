@@ -66,8 +66,9 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
     <div class="tab" data-t="add" onclick="tab(this)">إضافة</div>
   </div>
   <div class="tabs" id="ordFilter">
-    <div class="tab on" data-f="paid" onclick="ofilt(this)">جديدة</div>
+    <div class="tab on" data-f="pending_confirm" onclick="ofilt(this)">جديدة</div>
     <div class="tab" data-f="confirmed" onclick="ofilt(this)">مؤكدة</div>
+    <div class="tab" data-f="scheduled" onclick="ofilt(this)">مواعيد</div>
     <div class="tab" data-f="in_progress" onclick="ofilt(this)">جارية</div>
     <div class="tab" data-f="done" onclick="ofilt(this)">مكتملة</div>
   </div>
@@ -89,8 +90,14 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
     <button class="btn btn-sm" onclick="setSt('in_progress')">بدء العمل</button>
     <button class="btn btn-sm" onclick="setSt('done')">مكتمل</button>
   </div>
+  <label>تحديد موعد</label>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <input class="field" id="apptAt" type="datetime-local" style="margin:0">
+    <button class="btn btn-sm" style="width:auto" onclick="setAppt()">حفظ الموعد</button>
+  </div>
   <button class="btn" onclick="openChat()">محادثة</button>
   <button class="btn btn-ghost" style="margin-top:8px" onclick="showAddon()">إضافة خدمة للطلب</button>
+  <button class="btn btn-ghost" style="margin-top:8px;border-color:#e57373;color:#e57373" onclick="cancelOrd()">إلغاء الطلب</button>
   <div id="addonBox" style="display:none;margin-top:12px">
     <label>الخدمة الإضافية</label><input class="field" id="adTitle" placeholder="تغيير فحمات خلفية">
     <label>السعر</label><input class="field" id="adPrice" type="number" placeholder="350">
@@ -113,7 +120,7 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
 <script>
 const API='';
 const TYPE_AR={workshop:'ورشة',parts:'قطع غيار',batteries:'بطاريات',oils:'زيوت',tires:'كفرات'};
-let partner=null, orders=[], offers=[], products=[], tabName='orders', oFilter='paid', cur=null;
+let partner=null, orders=[], offers=[], products=[], tabName='orders', oFilter='pending_confirm', cur=null;
 async function api(path,opts={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.statusText);return d}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
@@ -150,7 +157,7 @@ async function load(){
 function render(){
   const body=document.getElementById('body');
   if(tabName==='orders'){
-    const list=orders.filter(o=>o.status===oFilter||(oFilter==='paid'&&(o.status==='paid'||o.status==='new')));
+    const list=orders.filter(o=>o.status===oFilter||(oFilter==='pending_confirm'&&['paid','new','pending_confirm'].includes(o.status)));
     body.innerHTML=list.length?list.map(o=>`
       <div class="card" onclick="openOrder(${o.id})">
         <div class="row"><b>${o.title}</b><span class="badge">${o.status_text}</span></div>
@@ -253,11 +260,26 @@ async function openOrder(id){
   document.getElementById('oPrice').textContent=cur.price+' ر.س';
   document.getElementById('oCar').textContent=cur.car_info||'—';
   document.getElementById('oComm').textContent='صافي بعد 15%: '+(cur.price*0.85).toFixed(0)+' ر.س';
-  document.getElementById('oSt').textContent=cur.status_text;
+  document.getElementById('oSt').textContent=cur.status_text+(cur.appointment_at?(' · موعد: '+String(cur.appointment_at).replace('T',' ')): (cur.preferred_time?(' · مفضّل: '+String(cur.preferred_time).replace('T',' ')):'') );
   document.getElementById('addonBox').style.display='none';
   show('s-order');
 }
-async function setSt(st){await api('/api/orders/'+cur.id+'/status',{method:'POST',body:{status:st}});toast('تم');load();openOrder(cur.id)}
+async function setSt(st){
+  await api('/api/orders/'+cur.id+'/status',{method:'POST',body:{status:st,partner_id:partner.id}});
+  toast('تم تحديث الحالة'); load(); openOrder(cur.id);
+}
+async function setAppt(){
+  const v=document.getElementById('apptAt').value;
+  if(!v) return toast('اختر الموعد');
+  await api('/api/orders/'+cur.id+'/appointment',{method:'POST',body:{appointment_at:v,partner_id:partner.id}});
+  toast('تم تحديد الموعد'); load(); openOrder(cur.id);
+}
+async function cancelOrd(){
+  const reason=prompt('سبب الإلغاء:');
+  if(reason===null) return;
+  await api('/api/orders/'+cur.id+'/cancel',{method:'POST',body:{by:'partner',reason:reason||'',partner_id:partner.id}});
+  toast('تم الإلغاء'); load(); openOrder(cur.id);
+}
 function showAddon(){document.getElementById('addonBox').style.display='block'}
 async function sendAddon(){
   await api('/api/orders/'+cur.id+'/addons',{method:'POST',body:{
