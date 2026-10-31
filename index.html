@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1A1D21">
-<title>ترباس</title>
+<meta name="description" content="ترباس — قارن أسعار ورش السيارات في صناعية العاصمة بالرياض. اختر سيارتك، قارن الضمان والسعر، واحجز خدمتك.">
+<meta name="keywords" content="ورش سيارات, صناعية العاصمة, تغيير فحمات, زيوت, بطاريات, كفرات, الرياض">
+<meta property="og:title" content="ترباس — قارن واحجز خدمة سيارتك">
+<meta property="og:description" content="أسعار حقيقية من الورش. مقارنة الضمان والمدة والتقييم قبل الدفع.">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ar_SA">
+<title>ترباس | قارن أسعار الورش واحجز خدمة سيارتك</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#1A1D21;--card:#252A30;--border:#353B42;--amber:#E8A33D;--teal:#4FA3A8;--good:#6FBF8B;--text:#F2F0EA;--dim:#9AA0A6}
@@ -58,12 +64,27 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
 .seg{display:flex;gap:8px;margin-bottom:12px}
 .seg .chip{flex:1;text-align:center}
 .inc{font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)}
+.banner{background:rgba(232,163,61,.12);border:1px solid rgba(232,163,61,.35);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.5}
+.how{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0 14px}
+.how .step-c{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center}
+.how .n{width:24px;height:24px;border-radius:50%;background:var(--amber);color:#1a1a1a;font-weight:800;font-size:12px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:6px}
+.how b{display:block;font-size:12px;margin-bottom:2px}
+.how span{font-size:10px;color:var(--dim)}
+.boot-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;transition:opacity .3s}
+.boot-overlay.hide{opacity:0;pointer-events:none}
+.spin{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.demo-tag{font-size:10px;color:var(--dim);margin-top:6px}
 </style>
 </head>
 <body>
 <div id="app">
 <!-- HOME -->
 <div class="screen active" id="s-home">
+  <div class="banner" id="demoBanner">
+    <b>ترباس</b> — قارن أسعار الورش قبل ما تلتزم. الاسم والموقع يظهران بعد تأكيد الطلب.
+    <div class="demo-tag">النسخة الحالية للتجربة في صناعية العاصمة · بعض الأسعار للتوضيح حتى تدخل الورش أسعارها</div>
+  </div>
   <div class="car-bar">
     <div class="dim" style="font-size:11px">سيارتك الحالية</div>
     <div class="row" style="margin-top:4px">
@@ -71,15 +92,24 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
       <button class="btn btn-sm btn-ghost" onclick="go('s-cars')">تغيير</button>
     </div>
   </div>
-  <input class="field" id="searchQ" placeholder="ابحث: فحمات، زيت، بطارية..." onkeydown="if(event.key==='Enter')doSearch()">
+  <input class="field" id="searchQ" placeholder="ابحث: فحمات، زيت، بطارية، ميزان..." onkeydown="if(event.key==='Enter')doSearch()" autocomplete="off">
   <div class="section">وش تحتاج؟</div>
   <div class="grid5" id="mainCats"></div>
+  <div class="section">الأكثر طلباً</div>
+  <div id="popularList"><div class="dim" style="padding:8px">جاري التحميل...</div></div>
+  <div class="section">كيف يشتغل ترباس؟</div>
+  <div class="how">
+    <div class="step-c"><div class="n">1</div><b>سيارتك</b><span>اختر أو أضف سيارة</span></div>
+    <div class="step-c"><div class="n">2</div><b>قارن</b><span>أسعار وضمان من عدة ورش</span></div>
+    <div class="step-c"><div class="n">3</div><b>احجز</b><span>بعد التأكيد يظهر اسم الورشة</span></div>
+  </div>
   <div class="section">نقاطك</div>
   <div class="card tap" onclick="go('s-points')">
-    <div class="row"><div><div class="dim">كل 10 ر.س = نقطة</div><div class="amber" style="font-size:22px" id="ptsHome">—</div></div><span>🎁</span></div>
+    <div class="row"><div><div class="dim">كل 10 ر.س = نقطة · تُضاف بعد تأكيد الطلب</div><div class="amber" style="font-size:22px" id="ptsHome">—</div></div><span>🎁</span></div>
     <div class="dim" id="ptsNext" style="margin-top:6px"></div>
   </div>
 </div>
+<div class="boot-overlay" id="bootOverlay"><div class="spin"></div><div class="dim">جاري تحميل ترباس...</div></div>
 
 <!-- WORKSHOP CATS -->
 <div class="screen" id="s-wcats">
@@ -143,12 +173,23 @@ h1{font-size:18px;margin:0 0 6px;font-weight:800}
   </div>
   <div class="section">يشمل</div><div class="card" id="ckInc"></div>
   <div class="section">لا يشمل</div><div class="card" id="ckExc"></div>
-  <div class="card" style="background:rgba(232,163,61,.08);border-color:var(--amber)">
-    <b>بعد الدفع</b>
-    <div class="dim" style="margin-top:6px">يظهر اسم الورشة والموقع ووسيلة التواصل</div>
+  <div class="card">
+    <div class="row"><span class="dim">نوع السعر</span><span>أجرة عمل</span></div>
+    <div class="dim" style="margin-top:8px">قطع الغيار إن احتجتها تُسعّر منفصلة ولا تُضاف تلقائياً</div>
   </div>
-  <button class="btn" onclick="payOffer()">تأكيد الطلب والدفع</button>
-  <p class="dim" style="text-align:center;margin-top:8px">الدفع الإلكتروني قريباً</p>
+  <div class="card" style="background:rgba(232,163,61,.08);border-color:var(--amber)">
+    <b>بعد التأكيد</b>
+    <div class="dim" style="margin-top:6px">يظهر اسم الورشة والمنطقة ووسيلة التواصل عبر التطبيق</div>
+  </div>
+  <div class="card">
+    <b>قبل التأكيد تأكد</b>
+    <div class="inc">✔ الخدمة والمدة والضمان واضحة</div>
+    <div class="inc">✔ السعر أعلاه أجرة عمل (مو قطعة)</div>
+    <div class="inc">✔ الإلغاء: تواصل عبر محادثة الطلب قبل بدء التنفيذ</div>
+    <div class="inc">✔ الدفع الإلكتروني يُفعّل لاحقاً — التأكيد يحجز الطلب الآن</div>
+  </div>
+  <button class="btn" onclick="payOffer()">تأكيد الطلب</button>
+  <p class="dim" style="text-align:center;margin-top:8px">لا رسوم إضافية مخفية في هذه الخطوة</p>
 </div>
 
 <!-- SUCCESS -->
@@ -306,14 +347,16 @@ function go(id){
 function carText(c){if(!c)return '—'; return `${c.brand} ${c.model} ${c.year||''}${c.trim?' · '+c.trim:''}`}
 
 async function boot(){
+  const ov=document.getElementById('bootOverlay');
   try{
     const res=await api('/api/auth/login',{method:'POST',body:{phone:localStorage.getItem('turbas_phone')||'0512345678'}});
     user=res.user;
-    const [cars, pts, home, z]=await Promise.all([
+    const [cars, pts, home, z, popular]=await Promise.all([
       api('/api/users/'+user.id+'/cars'),
       api('/api/users/'+user.id+'/points'),
       api('/api/home'),
-      api('/api/delivery-zones')
+      api('/api/delivery-zones'),
+      api('/api/popular-services').catch(()=>[])
     ]);
     myCars=cars; car=cars.find(x=>x.is_default)||cars[0]||null; zones=z;
     renderCar(); renderPoints(pts);
@@ -321,7 +364,24 @@ async function boot(){
       <div class="main-cat" onclick="openMain('${m.id}')">
         <span class="ic">${m.icon}</span><b>${m.name}</b><span class="d">${m.desc}</span>
       </div>`).join('');
-  }catch(e){toast(e.message)}
+    const pl=document.getElementById('popularList');
+    if(popular && popular.length){
+      pl.innerHTML=popular.map(s=>`
+        <div class="card tap" onclick="openCompare(${s.id},'${(s.name||'').replace(/'/g,'')}')">
+          <div class="row"><b>${s.name}</b><span class="amber">من ${s.min_price} ر.س</span></div>
+          <div class="dim" style="margin-top:4px">${s.offer_count} عروض متاحة</div>
+        </div>`).join('');
+    } else {
+      pl.innerHTML='<div class="dim" style="padding:8px">ابدأ من الأقسام أعلاه</div>';
+    }
+  }catch(e){
+    toast(e.message||'تعذر الاتصال — حاول مرة أخرى');
+    const pl=document.getElementById('popularList');
+    if(pl) pl.innerHTML='<div class="empty">تعذر تحميل الخدمات. اسحب للتحديث أو حاول لاحقاً.</div>';
+  } finally {
+    if(ov) ov.classList.add('hide');
+    setTimeout(()=>{if(ov) ov.remove()},400);
+  }
 }
 function renderCar(){
   document.getElementById('carLabel').textContent=car?carText(car):'أضف سيارتك';
@@ -379,14 +439,21 @@ async function openSvcs(id,name){
 }
 
 async function openCompare(id,name){
+  if(!id){ toast('جاري البحث عن الخدمة...'); return; }
   curSvc={id,name};
   document.getElementById('cmpTitle').textContent=name;
   document.getElementById('cmpCar').textContent=car?('لـ '+carText(car)):'';
+  document.getElementById('offersList').innerHTML='<div class="dim" style="padding:16px;text-align:center">جاري تحميل العروض...</div>';
+  go('s-compare');
+  try{
   offers=await api('/api/offers?service_def_id='+id);
   sortMode='best';
   document.querySelectorAll('#sortRow .chip').forEach(c=>c.classList.toggle('on',c.dataset.s==='best'));
   renderOffers();
-  go('s-compare');
+  }catch(e){
+    document.getElementById('offersList').innerHTML='<div class="empty">تعذر تحميل العروض. حاول مرة أخرى.</div>';
+    toast(e.message||'خطأ بالتحميل');
+  }
 }
 function setSort(el){
   document.querySelectorAll('#sortRow .chip').forEach(c=>c.classList.remove('on'));
@@ -410,8 +477,9 @@ function renderOffers(){
         <span>🔧 <b>${o.jobs_count||0}</b> عملية</span>
         <span>${o.warranty_ok?'✅ ملتزم بالضمان':'—'}</span>
       </div>
-      <div class="dim" style="margin-top:8px">المنطقة: ${o.area||'صناعية العاصمة'} · الاسم بعد الدفع</div>
-    </div>`).join(''):'<div class="empty">ما فيه عروض لهذه الخدمة</div>';
+      <div class="dim" style="margin-top:8px">المنطقة: ${o.area||'صناعية العاصمة'} · الاسم بعد التأكيد</div>
+      <div class="demo-tag">${o.price_note||'أجرة عمل'}${o.is_demo?' · أسعار توضيحية حتى تُحدّثها الورش':''}</div>
+    </div>`).join(''):'<div class="empty">لا توجد ورش متاحة لهذه الخدمة حالياً.<br>جرّب خدمة أخرى أو عد لاحقاً.</div>';
 }
 function openCheckout(oid){
   curOffer=offers.find(o=>o.id===oid); if(!curOffer)return;
@@ -757,12 +825,26 @@ async function loadPts(){
 }
 function doSearch(){
   const q=(document.getElementById('searchQ').value||'').trim();
-  if(!q) return toast('اكتب كلمة');
-  if(/فحم|فرامل/.test(q)) openWorkshopCats();
-  else if(/زيت/.test(q)){ vpContext={type:'product',kind:'oils'}; startVehiclePicker(); }
-  else if(/بطار/.test(q)){ vpContext={type:'product',kind:'batteries'}; startVehiclePicker(); }
-  else if(/كفر|إطار/.test(q)){ vpContext={type:'product',kind:'tires'}; startVehiclePicker(); }
-  else if(/قطع/.test(q)){ vpContext={type:'product',kind:'parts'}; startVehiclePicker(); }
+  if(!q) return toast('اكتب اسم خدمة أو قطعة');
+  const ql=q.toLowerCase();
+  if(/فحم|فرامل|هوب|brak/.test(ql)) { openWorkshopCats(); setTimeout(()=>openWSub(6,'فرامل'),200); }
+  else if(/زيت|oil|فلتر زيت/.test(ql)){
+    // try service first
+    openCompare(0,'تغيير زيت المحرك');
+    api('/api/popular-services').then(list=>{
+      const s=list.find(x=>x.name&&x.name.includes('زيت'));
+      if(s) openCompare(s.id,s.name);
+      else { vpContext={type:'product',kind:'oils'}; startVehiclePicker(); }
+    }).catch(()=>{ vpContext={type:'product',kind:'oils'}; startVehiclePicker(); });
+  }
+  else if(/بطار|battery/.test(ql)){ vpContext={type:'product',kind:'batteries'}; startVehiclePicker(); }
+  else if(/كفر|إطار|tire|tyre/.test(ql)){ vpContext={type:'product',kind:'tires'}; startVehiclePicker(); }
+  else if(/قطع|filter|فلتر/.test(ql)){ vpContext={type:'product',kind:'parts'}; startVehiclePicker(); }
+  else if(/مكيف|فريون|تكييف/.test(ql)){ openWorkshopCats(); setTimeout(()=>openWSub(5,'مكيف'),200); }
+  else if(/رديتر|تبريد/.test(ql)){ openWorkshopCats(); setTimeout(()=>openWSub(3,'رديترات وتبريد'),200); }
+  else if(/ميزان|وزن|عفش|مساعد/.test(ql)){ openWorkshopCats(); setTimeout(()=>openWSub(7,'تعليق وعفشة'),200); }
+  else if(/كهرب|دينمو|سلف/.test(ql)){ openWorkshopCats(); setTimeout(()=>openWSub(2,'كهرباء'),200); }
+  else if(/فحص|تشخيص|أكواد/.test(ql)){ openWorkshopCats(); setTimeout(()=>openWSub(8,'فحص وتشخيص'),200); }
   else openWorkshopCats();
 }
 

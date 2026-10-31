@@ -38,7 +38,7 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
 <div id="app">
 <div class="screen active" id="s-login">
   <h1 style="font-size:22px;margin-top:20px">ترباس <span class="amber">شركاء</span></h1>
-  <p class="dim" style="margin:8px 0 20px">لوحة مقدم الخدمة · صناعية العاصمة</p>
+  <p class="dim" style="margin:8px 0 20px">لوحة مقدم الخدمة · صناعية العاصمة<br>سعرك يظهر للعميل بدون اسمك حتى التأكيد</p>
   <input class="field" id="phone" value="0500000001" placeholder="الجوال">
   <button class="btn" onclick="login()">دخول</button>
   <p class="dim" style="margin-top:14px">WR ورشة 0500000001 · PR قطع 0500000006 · BT 0500000008 · OI 0500000009 · TY 0500000010</p>
@@ -184,15 +184,16 @@ function render(){
   } else {
     if(partner.type==='workshop'){
       body.innerHTML=`
-        <p class="dim">ضع سعرك على خدمة من كتالوج ترباس — تظهر للعملاء بدون اسمك حتى الدفع</p>
-        <label>معرّف الخدمة service_def_id</label>
-        <input class="field" id="fSid" placeholder="1 فحمات أمامية · 2 خلفية · 5 فحص فرامل">
-        <label>السعر</label><input class="field" id="fPrice" type="number">
-        <label>المدة</label><input class="field" id="fDur" placeholder="45 دقيقة">
-        <label>الضمان أيام</label><input class="field" id="fWar" type="number" value="90">
-        <label>يشمل</label><input class="field" id="fInc">
-        <label>لا يشمل</label><input class="field" id="fExc">
-        <button class="btn" onclick="addOffer()">نشر العرض</button>`;
+        <p class="dim">سعرك يظهر للعملاء <b>بدون اسم الورشة</b> حتى يؤكدوا الطلب. السعر = أجرة العمل (قطع الغيار منفصلة).</p>
+        <label>الخدمة</label>
+        <select class="field" id="fSid"><option value="">جاري تحميل الخدمات...</option></select>
+        <label>السعر (أجرة العمل) ر.س</label><input class="field" id="fPrice" type="number" placeholder="مثال 290">
+        <label>مدة التنفيذ</label><input class="field" id="fDur" placeholder="45 دقيقة">
+        <label>الضمان (أيام)</label><input class="field" id="fWar" type="number" value="90">
+        <label>يشمل</label><input class="field" id="fInc" placeholder="فك وتركيب · فحص">
+        <label>لا يشمل</label><input class="field" id="fExc" placeholder="قطع الغيار · هوبات">
+        <button class="btn" onclick="addOffer()">نشر العرض للعملاء</button>`;
+      loadServiceCatalog();
     } else {
       body.innerHTML=`
         <label>اسم المنتج</label><input class="field" id="fName">
@@ -209,14 +210,27 @@ function render(){
     }
   }
 }
+async function loadServiceCatalog(){
+  try{
+    const list=await api('/api/service-catalog');
+    const sel=document.getElementById('fSid');
+    if(!sel) return;
+    sel.innerHTML='<option value="">— اختر الخدمة —</option>'+list.map(s=>
+      `<option value="${s.id}">${s.category_name} — ${s.name}</option>`).join('');
+  }catch(e){toast('تعذر تحميل الخدمات')}
+}
 async function addOffer(){
+  const sid=document.getElementById('fSid').value;
+  const price=+document.getElementById('fPrice').value;
+  if(!sid) return toast('اختر الخدمة');
+  if(!price||price<=0) return toast('أدخل سعر أجرة العمل');
   await api('/api/offers',{method:'POST',body:{
-    partner_id:partner.id, service_def_id:+document.getElementById('fSid').value,
-    price:+document.getElementById('fPrice').value, duration:document.getElementById('fDur').value,
+    partner_id:partner.id, service_def_id:+sid,
+    price:price, duration:document.getElementById('fDur').value,
     warranty_days:+document.getElementById('fWar').value||30,
     includes:document.getElementById('fInc').value, excludes:document.getElementById('fExc').value
   }});
-  toast('تم النشر'); tabName='catalog'; await load();
+  toast('تم نشر العرض للعملاء'); tabName='catalog'; await load();
 }
 async function addProd(){
   await api('/api/products',{method:'POST',body:{

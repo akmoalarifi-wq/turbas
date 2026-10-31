@@ -218,6 +218,48 @@ def init_db():
         add_svc("ac_check", "فحص مكيف", "فحص تبريد", "قياس تبريد · تقرير", "قطع")
         add_svc("ac_clean", "تنظيف مكيف", "تنظيف وتعقيم مجاري", "تنظيف · تعقيم", "فريون")
 
+        # body / suspension / diagnostics / programming leaves + oil & battery related
+        body = c.execute("SELECT id FROM categories WHERE slug='body'").fetchone()
+        if body:
+            for i,(slug,name) in enumerate([
+                ("bumper_svc","صدام"),("paint_svc","رش"),("bodywork_svc","سمكرة"),
+            ],1):
+                c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                          (body[0], slug, name, "", i))
+        add_svc("bumper_svc", "إصلاح صدام", "سمكرة وإصلاح الصدام", "حسب الاتفاق", "رش كامل")
+        add_svc("paint_svc", "رش قطعة", "رش قطعة بودي", "جهوزية ورش", "سمكرة إضافية")
+        add_svc("bodywork_svc", "سمكرة", "إصلاح صدمات", "حسب الاتفاق", "قطع جديدة")
+
+        sus = c.execute("SELECT id FROM categories WHERE slug='suspension'").fetchone()
+        if sus:
+            for i,(slug,name) in enumerate([
+                ("arms","أذرعة"),("shocks","مساعدات"),("alignment","وزن وميزان"),
+            ],1):
+                c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                          (sus[0], slug, name, "", i))
+        add_svc("arms", "تغيير أذرعة", "استبدال أذرعة التعليق", "فك وتركيب", "ميزان")
+        add_svc("shocks", "تغيير مساعدات", "استبدال المساعدات", "فك وتركيب", "أذرعة")
+        add_svc("alignment", "وزن وميزان", "ضبط زوايا العجلات", "ميزان كمبيوتر", "قطع")
+
+        diag = c.execute("SELECT id FROM categories WHERE slug='diagnostics'").fetchone()
+        if diag:
+            for i,(slug,name) in enumerate([("diag_full","فحص شامل"),("diag_codes","قراءة أكواد")],1):
+                c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                          (diag[0], slug, name, "", i))
+        add_svc("diag_full", "فحص شامل للسيارة", "فحص أنظمة أساسية", "تقرير فحص", "إصلاح")
+        add_svc("diag_codes", "قراءة أكواد الأعطال", "فحص كمبيوتر وقراءة أكواد", "تقرير أكواد", "إصلاح")
+
+        prog = c.execute("SELECT id FROM categories WHERE slug='programming'").fetchone()
+        if prog:
+            for i,(slug,name) in enumerate([("ecu_prog","برمجة كمبيوتر"),("keys","برمجة مفاتيح")],1):
+                c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                          (prog[0], slug, name, "", i))
+        add_svc("ecu_prog", "برمجة كمبيوتر السيارة", "برمجة حسب الحاجة", "حسب نوع السيارة", "قطع")
+        add_svc("keys", "برمجة مفتاح", "برمجة مفتاح إضافي أو بديل", "حسب النوع", "مفتاح جديد إن لزم")
+
+        # oil change under mechanics if oil_leak exists path - add as engine related service via oil_leak category
+        add_svc("oil_leak", "تغيير زيت المحرك", "تغيير زيت المحرك والفلتر", "زيت · فلتر · عمالة", "قطع أخرى")
+
         # partners
         partners = [
             ("WR-1001", "ورشة النخبة", "0500000001", "workshop", 4.6, 4.8, 127),
@@ -258,6 +300,15 @@ def init_db():
         off(3, "تعبئة فريون", 280, "40 دقيقة", 60, "تعبئة وفحص تهريب", "كمبروسر")
         off(1, "إصلاح/تغيير دينمو", 450, "ساعتين", 90, "فحص وإصلاح أو تبديل", "بطارية")
         off(2, "إصلاح/تغيير دينمو", 380, "ساعتين", 60, "إصلاح/تبديل", "بطارية")
+        off(1, "تغيير زيت المحرك", 80, "30 دقيقة", 7, "عمالة تغيير الزيت", "سعر الزيت والفلتر منفصل")
+        off(2, "تغيير زيت المحرك", 60, "35 دقيقة", 7, "عمالة", "الزيت والفلتر")
+        off(3, "تغيير زيت المحرك", 100, "25 دقيقة", 14, "عمالة + فحص مستوى", "الزيت والفلتر")
+        off(1, "وزن وميزان", 120, "45 دقيقة", 7, "ميزان كمبيوتر", "قطع")
+        off(2, "وزن وميزان", 100, "50 دقيقة", 7, "ميزان", "قطع")
+        off(1, "فحص شامل للسيارة", 150, "60 دقيقة", 7, "تقرير فحص", "إصلاح")
+        off(3, "فحص شامل للسيارة", 180, "50 دقيقة", 14, "تقرير مفصل", "إصلاح")
+        off(1, "قراءة أكواد الأعطال", 50, "15 دقيقة", 3, "تقرير أكواد", "إصلاح")
+        off(2, "قراءة أكواد الأعطال", 40, "20 دقيقة", 3, "أكواد", "إصلاح")
 
         # products
         prods = [
@@ -349,7 +400,74 @@ def init_db():
                   (uid, 28, "ترحيب", now()))
 
     conn.commit()
+    # Ensure catalog expansions exist even on old DBs
+    try:
+        ensure_catalog(conn)
+        conn.commit()
+    except Exception as e:
+        print("ensure_catalog:", e)
     conn.close()
+
+
+def ensure_catalog(conn):
+    """Add missing services/offers without wiping existing data."""
+    c = conn.cursor()
+    def has_svc(name):
+        return c.execute("SELECT id FROM service_defs WHERE name=?", (name,)).fetchone()
+    def ensure_leaf(parent_slug, slug, name, sort=1):
+        parent = c.execute("SELECT id FROM categories WHERE slug=?", (parent_slug,)).fetchone()
+        if not parent: return None
+        row = c.execute("SELECT id FROM categories WHERE slug=?", (slug,)).fetchone()
+        if row: return row[0]
+        c.execute("INSERT INTO categories (parent_id,slug,name,icon,sort,scope) VALUES (?,?,?,?,?,'workshop')",
+                  (parent[0], slug, name, "", sort))
+        return c.lastrowid
+    def add_svc(cat_slug, name, desc, inc, exc):
+        if has_svc(name): return
+        row = c.execute("SELECT id FROM categories WHERE slug=?", (cat_slug,)).fetchone()
+        if not row: return
+        c.execute("INSERT INTO service_defs (category_id,name,description,includes,excludes) VALUES (?,?,?,?,?)",
+                  (row[0], name, desc, inc, exc))
+    def off(pid, sname, price, dur, war, inc, exc):
+        sd = c.execute("SELECT id FROM service_defs WHERE name=?", (sname,)).fetchone()
+        if not sd: return
+        exists = c.execute("SELECT id FROM offers WHERE partner_id=? AND service_def_id=?", (pid, sd[0])).fetchone()
+        if exists: return
+        c.execute("""INSERT INTO offers (partner_id,service_def_id,price,duration,warranty_days,includes,excludes)
+                     VALUES (?,?,?,?,?,?,?)""", (pid, sd[0], price, dur, war, inc, exc))
+
+    ensure_leaf("suspension", "arms", "أذرعة", 1)
+    ensure_leaf("suspension", "shocks", "مساعدات", 2)
+    ensure_leaf("suspension", "alignment", "وزن وميزان", 3)
+    ensure_leaf("diagnostics", "diag_full", "فحص شامل", 1)
+    ensure_leaf("diagnostics", "diag_codes", "قراءة أكواد", 2)
+    ensure_leaf("programming", "ecu_prog", "برمجة كمبيوتر", 1)
+    ensure_leaf("programming", "keys", "برمجة مفاتيح", 2)
+    ensure_leaf("body", "bumper_svc", "صدام", 1)
+    ensure_leaf("body", "paint_svc", "رش", 2)
+    ensure_leaf("body", "bodywork_svc", "سمكرة", 3)
+
+    add_svc("arms", "تغيير أذرعة", "استبدال أذرعة التعليق", "فك وتركيب", "ميزان")
+    add_svc("shocks", "تغيير مساعدات", "استبدال المساعدات", "فك وتركيب", "أذرعة")
+    add_svc("alignment", "وزن وميزان", "ضبط زوايا العجلات", "ميزان كمبيوتر", "قطع")
+    add_svc("diag_full", "فحص شامل للسيارة", "فحص أنظمة أساسية", "تقرير فحص", "إصلاح")
+    add_svc("diag_codes", "قراءة أكواد الأعطال", "فحص كمبيوتر وقراءة أكواد", "تقرير أكواد", "إصلاح")
+    add_svc("ecu_prog", "برمجة كمبيوتر السيارة", "برمجة حسب الحاجة", "حسب نوع السيارة", "قطع")
+    add_svc("keys", "برمجة مفتاح", "برمجة مفتاح إضافي أو بديل", "حسب النوع", "مفتاح جديد إن لزم")
+    add_svc("bumper_svc", "إصلاح صدام", "سمكرة وإصلاح الصدام", "حسب الاتفاق", "رش كامل")
+    add_svc("paint_svc", "رش قطعة", "رش قطعة بودي", "جهوزية ورش", "سمكرة إضافية")
+    add_svc("bodywork_svc", "سمكرة", "إصلاح صدمات", "حسب الاتفاق", "قطع جديدة")
+    add_svc("oil_leak", "تغيير زيت المحرك", "تغيير زيت المحرك والفلتر", "زيت · فلتر · عمالة", "قطع أخرى")
+
+    off(1, "تغيير زيت المحرك", 80, "30 دقيقة", 7, "عمالة تغيير الزيت", "سعر الزيت والفلتر منفصل")
+    off(2, "تغيير زيت المحرك", 60, "35 دقيقة", 7, "عمالة", "الزيت والفلتر")
+    off(3, "تغيير زيت المحرك", 100, "25 دقيقة", 14, "عمالة + فحص", "الزيت والفلتر")
+    off(1, "وزن وميزان", 120, "45 دقيقة", 7, "ميزان كمبيوتر", "قطع")
+    off(2, "وزن وميزان", 100, "50 دقيقة", 7, "ميزان", "قطع")
+    off(1, "فحص شامل للسيارة", 150, "60 دقيقة", 7, "تقرير فحص", "إصلاح")
+    off(3, "فحص شامل للسيارة", 180, "50 دقيقة", 14, "تقرير مفصل", "إصلاح")
+    off(1, "قراءة أكواد الأعطال", 50, "15 دقيقة", 3, "تقرير أكواد", "إصلاح")
+    off(2, "قراءة أكواد الأعطال", 40, "20 دقيقة", 3, "أكواد", "إصلاح")
 
 
 class App(SimpleHTTPRequestHandler):
@@ -388,7 +506,39 @@ class App(SimpleHTTPRequestHandler):
         if path in ("/partner", "/partner.html"):
             return self._file(STATIC / "partner.html")
         if path == "/api/health":
-            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.0"})
+            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.1"})
+
+        if path == "/robots.txt":
+            body = b"User-agent: *\nAllow: /\nDisallow: /partner\nDisallow: /api/\nSitemap: https://turbas.onrender.com/sitemap.xml\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if path == "/api/service-catalog":
+            conn = get_db()
+            data = j(conn.execute(
+                """SELECT sd.id, sd.name, sd.description, c.name as category_name
+                   FROM service_defs sd JOIN categories c ON c.id=sd.category_id
+                   ORDER BY c.sort, sd.name""").fetchall())
+            conn.close()
+            return self._send_json(200, data)
+
+        if path == "/api/popular-services":
+            conn = get_db()
+            data = j(conn.execute(
+                """SELECT sd.id, sd.name, sd.description, COUNT(o.id) as offer_count,
+                          MIN(o.price) as min_price
+                   FROM service_defs sd
+                   JOIN offers o ON o.service_def_id=sd.id AND o.active=1
+                   GROUP BY sd.id
+                   HAVING offer_count > 0
+                   ORDER BY offer_count DESC, min_price ASC
+                   LIMIT 8""").fetchall())
+            conn.close()
+            return self._send_json(200, data)
 
         if path == "/api/delivery-zones":
             return self._send_json(200, [
@@ -451,6 +601,9 @@ class App(SimpleHTTPRequestHandler):
                 def score(x):
                     return (x.get("turbas_rating") or 0) * 20 + (x.get("jobs_count") or 0) * 0.05 - (x.get("price") or 0) * 0.01
                 data.sort(key=score, reverse=True)
+                for row in data:
+                    row["is_demo"] = True  # بيانات توضيحية حتى تدخل الورش أسعارها الحقيقية
+                    row["price_note"] = "أجرة عمل — قطع الغيار إن لزم تُسعّر منفصلة"
             conn.close()
             return self._send_json(200, data)
 
