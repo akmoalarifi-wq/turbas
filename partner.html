@@ -121,21 +121,29 @@ label{font-size:12px;color:var(--dim);display:block;margin-bottom:4px}
 const API='';
 const TYPE_AR={workshop:'ورشة',parts:'قطع غيار',batteries:'بطاريات',oils:'زيوت',tires:'كفرات'};
 let partner=null, orders=[], offers=[], products=[], tabName='orders', oFilter='pending_confirm', cur=null;
-async function api(path,opts={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.statusText);return d}
+let AUTH_TOKEN=sessionStorage.getItem('turbas_partner_token')||localStorage.getItem('turbas_partner_token')||'';
+async function api(path,opts={}){
+  const headers={'Content-Type':'application/json'};
+  if(AUTH_TOKEN) headers['Authorization']='Bearer '+AUTH_TOKEN;
+  const r=await fetch(API+path,{headers,...opts,body:opts.body?JSON.stringify(opts.body):undefined});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||r.statusText);
+  return d;
+}
 function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
 
 async function login(){
   try{
     const res=await api('/api/partners/login',{method:'POST',body:{phone:document.getElementById('phone').value.trim()}});
-    partner=res.partner; localStorage.setItem('turbas_partner',JSON.stringify(partner));
+    partner=res.partner; if(res.token){ AUTH_TOKEN=res.token; sessionStorage.setItem('turbas_partner_token', res.token); localStorage.setItem('turbas_partner_token', res.token); } localStorage.setItem('turbas_partner',JSON.stringify(partner));
     document.getElementById('pName').textContent=partner.name;
     document.getElementById('pCode').textContent=partner.code||'';
     document.getElementById('pType').textContent=(TYPE_AR[partner.type]||partner.type)+' · '+(partner.area||'');
     await load(); show('s-home');
   }catch(e){toast(e.message)}
 }
-function logout(){partner=null;localStorage.removeItem('turbas_partner');show('s-login')}
+function logout(){partner=null;AUTH_TOKEN='';localStorage.removeItem('turbas_partner');sessionStorage.removeItem('turbas_partner_token');localStorage.removeItem('turbas_partner_token');show('s-login')}
 function tab(el){document.querySelectorAll('.tabs .tab').forEach(t=>{if(!t.dataset.f)t.classList.remove('on')});el.classList.add('on');tabName=el.dataset.t;
   document.getElementById('ordFilter').style.display=tabName==='orders'?'flex':'none'; render()}
 function ofilt(el){document.querySelectorAll('#ordFilter .tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');oFilter=el.dataset.f;render()}

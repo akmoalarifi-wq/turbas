@@ -335,8 +335,11 @@ let curMain=null, curCat=null, curSub=null, curSvc=null, offers=[], sortMode='be
 let curProd=null, zoneFee=0, zoneName='', chatOrderId=null, ordFilter='all';
 let vpContext=null, vpStep='mode', vpData={}, vpListCache=[];
 
+let AUTH_TOKEN=localStorage.getItem('turbas_token')||'';
 async function api(path, opts={}){
-  const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts,body:opts.body?JSON.stringify(opts.body):undefined});
+  const headers={'Content-Type':'application/json'};
+  if(AUTH_TOKEN) headers['Authorization']='Bearer '+AUTH_TOKEN;
+  const r=await fetch(API+path,{headers,...opts,body:opts.body?JSON.stringify(opts.body):undefined});
   const d=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error||('خطأ '+r.status));
   return d;
@@ -355,7 +358,7 @@ async function boot(){
   const ov=document.getElementById('bootOverlay');
   try{
     const res=await api('/api/auth/login',{method:'POST',body:{phone:localStorage.getItem('turbas_phone')||'0512345678'}});
-    user=res.user;
+    user=res.user; if(res.token){ AUTH_TOKEN=res.token; localStorage.setItem('turbas_token', res.token); }
     const [cars, pts, home, z, popular]=await Promise.all([
       api('/api/users/'+user.id+'/cars'),
       api('/api/users/'+user.id+'/points'),

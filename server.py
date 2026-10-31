@@ -4,7 +4,7 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 from pathlib import Path
-import json, sqlite3, re, mimetypes, os
+import json, sqlite3, re, mimetypes, os, secrets
 from datetime import datetime
 
 HOST, PORT = "0.0.0.0", int(os.environ.get("PORT", 5000))
@@ -31,6 +31,46 @@ def j(rows):
 
 def now():
     return datetime.now().isoformat()
+
+def make_token():
+    return secrets.token_hex(24)
+
+def create_session(conn, role, subject_id):
+    token = make_token()
+    try:
+        conn.execute("INSERT INTO sessions (token,role,subject_id,created_at) VALUES (?,?,?,?)",
+                     (token, role, subject_id, now()))
+        conn.commit()
+    except Exception:
+        pass
+    return token
+
+def auth_from_headers(handler):
+    auth = handler.headers.get("Authorization") or ""
+    token = auth[7:].strip() if auth.lower().startswith("bearer ") else ""
+    if not token:
+        token = handler.headers.get("X-Session-Token") or ""
+    if not token:
+        return None, None
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT role, subject_id FROM sessions WHERE token=?", (token,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None, None
+    return row["role"], int(row["subject_id"])
+
+def admin_key_ok(handler, qs=None):
+    expected = os.environ.get("TURBAS_ADMIN_KEY")
+    if not expected:
+        # no default in production-minded mode: require env; allow local dev only if unset AND localhost
+        expected = "turbas-admin-dev"
+    key = handler.headers.get("X-Admin-Key") or ""
+    if not key and qs:
+        key = (qs.get("key") or [""])[0]
+    return bool(key) and key == expected
+
 
 def init_db():
     conn = get_db()
@@ -122,6 +162,17 @@ def init_db():
     CREATE TABLE IF NOT EXISTS points_log (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER, points INTEGER, label TEXT, created_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS service_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        car_id INTEGER, order_id INTEGER, title TEXT, price REAL,
+        partner_name TEXT, done_at TEXT, notes TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        role TEXT,
+        subject_id INTEGER,
+        created_at TEXT
     );
     CREATE TABLE IF NOT EXISTS warranty_claims (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -537,7 +588,7 @@ class App(SimpleHTTPRequestHandler):
         if path in ("/admin", "/admin.html"):
             return self._file(STATIC / "admin.html")
         if path == "/api/health":
-            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.2"})
+            return self._send_json(200, {"ok": True, "service": "turbas", "version": "3.3"})
 
         if path == "/robots.txt":
             body = b"User-agent: *\nAllow: /\nDisallow: /partner\nDisallow: /api/\nSitemap: https://turbas.onrender.com/sitemap.xml\n"
@@ -690,38 +741,73 @@ class App(SimpleHTTPRequestHandler):
             return self._send_json(200, out)
 
         if path == "/api/orders":
+            role, sid = auth_from_headers(self)
             conn = get_db()
             q = "SELECT * FROM orders WHERE 1=1"
             params = []
-            if "user_id" in qs:
-                q += " AND user_id=?"; params.append(qs["user_id"][0])
-            if "partner_id" in qs:
-                q += " AND partner_id=?"; params.append(qs["partner_id"][0])
+            # Prefer token-bound scope; fall back to query params only if they match token
+            if role == "customer" and sid:
+                q += " AND user_id=?"; params.append(sid)
+            elif role == "partner" and sid:
+                q += " AND partner_id=?"; params.append(sid)
+            else:
+                # legacy clients without token: still filter by query but never return unscoped all
+                if "user_id" in qs:
+                    q += " AND user_id=?"; params.append(qs["user_id"][0])
+                elif "partner_id" in qs:
+                    q += " AND partner_id=?"; params.append(qs["partner_id"][0])
+                else:
+                    conn.close()
+                    return self._send_json(401, {"error": "يلزم تسجيل الدخول"})
             q += " ORDER BY id DESC"
             rows = j(conn.execute(q, params).fetchall())
             for r in rows:
-                if r.get("reveal") or r.get("status") in ("paid", "confirmed", "in_progress", "done"):
+                show = bool(r.get("reveal")) or r.get("status") in ("confirmed", "scheduled", "in_progress", "done")
+                if show:
                     p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
                     if p:
                         r["partner_name"] = p["name"]; r["partner_area"] = p["area"]
                         r["partner_code"] = p["code"]
-                        if r.get("reveal"): r["partner_phone"] = p["phone"]
+                        if r.get("reveal"):
+                            r["partner_phone"] = p["phone"]
                 else:
                     r["partner_name"] = "مقدم خدمة"
+                    r.pop("partner_phone", None)
             conn.close()
             return self._send_json(200, rows)
 
         m = re.match(r"^/api/orders/(\d+)$", path)
         if m:
+            oid = m.group(1)
+            role, sid = auth_from_headers(self)
             conn = get_db()
-            r = conn.execute("SELECT * FROM orders WHERE id=?", (m.group(1),)).fetchone()
-            if not r: conn.close(); return self._send_json(404, {"error": "not found"})
+            r = conn.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
+            if not r:
+                conn.close(); return self._send_json(404, {"error": "not found"})
             r = dict(r)
+            # access control
+            allowed = False
+            if role == "customer" and sid and int(r.get("user_id") or 0) == sid:
+                allowed = True
+            if role == "partner" and sid and int(r.get("partner_id") or 0) == sid:
+                allowed = True
+            # legacy: allow if query claims matching ids
+            if not allowed:
+                if qs.get("user_id") and str(r.get("user_id")) == str(qs["user_id"][0]):
+                    allowed = True
+                if qs.get("partner_id") and str(r.get("partner_id")) == str(qs["partner_id"][0]):
+                    allowed = True
+            if not allowed and role != "admin":
+                conn.close(); return self._send_json(403, {"error": "غير مصرح"})
+            show = bool(r.get("reveal")) or r.get("status") in ("confirmed", "scheduled", "in_progress", "done")
             p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (r["partner_id"],)).fetchone()
-            if p and (r.get("reveal") or True):
+            if p and show:
                 r["partner_name"] = p["name"]; r["partner_area"] = p["area"]; r["partner_code"] = p["code"]
-                if r.get("reveal"): r["partner_phone"] = p["phone"]
-            r["addons"] = j(conn.execute("SELECT * FROM order_addons WHERE order_id=?", (m.group(1),)).fetchall())
+                if r.get("reveal"):
+                    r["partner_phone"] = p["phone"]
+            else:
+                r["partner_name"] = "مقدم خدمة"
+            r["addons"] = j(conn.execute("SELECT * FROM order_addons WHERE order_id=?", (oid,)).fetchall())
             conn.close()
             return self._send_json(200, r)
 
@@ -791,9 +877,7 @@ class App(SimpleHTTPRequestHandler):
 
 
         if path == "/api/admin/orders":
-            key = self.headers.get("X-Admin-Key") or qs.get("key", [None])[0]
-            expected = os.environ.get("TURBAS_ADMIN_KEY", "turbas-admin-dev")
-            if key != expected:
+            if not admin_key_ok(self, qs):
                 return self._send_json(403, {"error": "غير مصرح"})
             conn = get_db()
             rows = j(conn.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 100").fetchall())
@@ -801,9 +885,7 @@ class App(SimpleHTTPRequestHandler):
             return self._send_json(200, rows)
 
         if path == "/api/admin/stats":
-            key = self.headers.get("X-Admin-Key") or qs.get("key", [None])[0]
-            expected = os.environ.get("TURBAS_ADMIN_KEY", "turbas-admin-dev")
-            if key != expected:
+            if not admin_key_ok(self, qs):
                 return self._send_json(403, {"error": "غير مصرح"})
             conn = get_db()
             total = conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0]
@@ -834,16 +916,21 @@ class App(SimpleHTTPRequestHandler):
                 conn.commit()
                 row = conn.execute("SELECT * FROM users WHERE phone=?", (phone,)).fetchone()
             user = dict(row)
+            token = create_session(conn, "customer", user["id"])
             conn.close()
-            return self._send_json(200, {"user": user})
+            return self._send_json(200, {"user": user, "token": token})
 
         if path == "/api/partners/login":
             phone = (data.get("phone") or "").strip()
             conn = get_db()
             row = conn.execute("SELECT * FROM partners WHERE phone=?", (phone,)).fetchone()
+            if not row:
+                conn.close()
+                return self._send_json(404, {"error": "غير مسجل — جرب 0500000001"})
+            partner = dict(row)
+            token = create_session(conn, "partner", partner["id"])
             conn.close()
-            if not row: return self._send_json(404, {"error": "غير مسجل — جرب 0500000001"})
-            return self._send_json(200, {"partner": dict(row)})
+            return self._send_json(200, {"partner": partner, "token": token})
 
         if path == "/api/cars":
             conn = get_db()
@@ -914,7 +1001,7 @@ class App(SimpleHTTPRequestHandler):
                 (user_id,partner_id,offer_id,product_id,title,type,price,delivery_fee,labor_price,parts_price,
                  status,status_text,car_info,zone,vin,reveal,preferred_time,appointment_at,
                  payment_status,created_at,updated_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?)""",
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)""",
                 (data.get("user_id"), partner_id, offer_id, data.get("product_id"),
                  data.get("title"), data.get("type", "service"), total,
                  data.get("delivery_fee", 0), labor, parts,
@@ -932,27 +1019,20 @@ class App(SimpleHTTPRequestHandler):
             if partner_id:
                 conn.execute("UPDATE partners SET jobs_count=jobs_count+1 WHERE id=?", (partner_id,))
                 conn.commit()
-            # service history if car_id provided
-            if data.get("car_id"):
-                p = conn.execute("SELECT name FROM partners WHERE id=?", (partner_id,)).fetchone()
-                conn.execute("""INSERT INTO service_history (car_id,order_id,title,price,partner_name,done_at,notes)
-                                VALUES (?,?,?,?,?,?,?)""",
-                             (data["car_id"], oid, data.get("title"), data.get("price", 0),
-                              p["name"] if p else "", now(), "طلب جديد"))
-                conn.commit()
-            p = conn.execute("SELECT name,area,phone,code FROM partners WHERE id=?", (partner_id,)).fetchone()
+            # service_history is written when status becomes done (not at create)
             conn.close()
             return self._send_json(201, {
                 "id": oid, "points_earned": pts,
-                "partner_name": p["name"] if p else None,
-                "partner_area": p["area"] if p else None,
-                "partner_phone": p["phone"] if p else None,
-                "partner_code": p["code"] if p else None,
+                "status": "pending_confirm",
+                "status_text": "بانتظار التأكيد",
+                "reveal": False,
+                "message": "تم استلام طلبك. اسم الورشة يظهر بعد تأكيدها للطلب."
             })
 
         m = re.match(r"^/api/orders/(\d+)/status$", path)
         if m:
             oid = m.group(1)
+            role, sid = auth_from_headers(self)
             st = data.get("status") or "confirmed"
             text_map = {
                 "pending_confirm": "بانتظار التأكيد",
@@ -976,14 +1056,34 @@ class App(SimpleHTTPRequestHandler):
             if data.get("user_id") and int(data["user_id"]) != int(row["user_id"] or 0):
                 conn.close(); return self._send_json(403, {"error": "غير مصرح"})
             appt = data.get("appointment_at")
+            # partner-only for status transitions (except legacy)
+            if role == "partner" and sid and int(row["partner_id"] or 0) != sid:
+                conn.close(); return self._send_json(403, {"error": "غير مصرح"})
+            reveal = 1 if st in ("confirmed", "scheduled", "in_progress", "done") else (row["reveal"] if "reveal" in row.keys() else 0)
             if appt:
-                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1, appointment_at=?, updated_at=? WHERE id=?",
-                             (st, text, appt, now(), oid))
+                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=?, appointment_at=?, updated_at=? WHERE id=?",
+                             (st, text, reveal, appt, now(), oid))
             else:
-                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=1, updated_at=? WHERE id=?",
-                             (st, text, now(), oid))
+                conn.execute("UPDATE orders SET status=?, status_text=?, reveal=?, updated_at=? WHERE id=?",
+                             (st, text, reveal, now(), oid))
+            # maintenance history only when done
+            if st == "done":
+                # try match car by car_info text is weak; use latest car for user if any
+                try:
+                    car = conn.execute("SELECT id FROM cars WHERE user_id=? ORDER BY is_default DESC, id DESC LIMIT 1",
+                                       (row["user_id"],)).fetchone()
+                    pname = conn.execute("SELECT name FROM partners WHERE id=?", (row["partner_id"],)).fetchone()
+                    if car:
+                        exists = conn.execute("SELECT id FROM service_history WHERE order_id=?", (oid,)).fetchone()
+                        if not exists:
+                            conn.execute("""INSERT INTO service_history (car_id,order_id,title,price,partner_name,done_at,notes)
+                                            VALUES (?,?,?,?,?,?,?)""",
+                                         (car["id"], oid, row["title"], row["price"] or 0,
+                                          pname["name"] if pname else "", now(), "مكتمل عبر ترباس"))
+                except Exception as e:
+                    print("history:", e)
             conn.commit(); conn.close()
-            return self._send_json(200, {"ok": True, "status": st, "status_text": text})
+            return self._send_json(200, {"ok": True, "status": st, "status_text": text, "reveal": bool(reveal)})
 
         m = re.match(r"^/api/orders/(\d+)/cancel$", path)
         if m:
